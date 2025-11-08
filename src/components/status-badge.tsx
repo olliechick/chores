@@ -1,11 +1,13 @@
-import {format, isToday, isTomorrow} from "date-fns";
-import {calculateNextDueDate, getChoreStatus} from "../utils.ts";
-import type {Chore} from "../models.ts";
+import { format, isToday, isTomorrow } from "date-fns";
+import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
+import type { Chore } from "../models.ts";
+
+export type StatusBadgeProps = { chore: Chore }
 
 /**
  * Helper component for displaying the due date/status tag
  */
-export const StatusBadge = ({ chore }: {chore:Chore}) => {
+export const StatusBadge = ({ chore }: StatusBadgeProps) => {
     const nextDueDate = calculateNextDueDate(chore);
     const status = getChoreStatus(chore, nextDueDate);
 

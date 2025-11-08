@@ -1,14 +1,16 @@
-import {calculateNextDueDate, getChoreStatus} from "../utils.ts";
-import {formatDistanceToNowStrict, isToday, isYesterday} from "date-fns"; // <-- isSameDay is imported
-import {Calendar, CheckCircle2, Loader2, User, Zap} from "lucide-react";
-import type {Chore} from "../models.ts";
-import {StatusBadge} from "./status-badge.tsx";
+import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
+import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns"; // <-- isSameDay is imported
+import { Calendar, CheckCircle2, Loader2, User, Zap } from "lucide-react";
+import type { Chore } from "../models.ts";
+import { StatusBadge } from "./status-badge.tsx";
+
+type ChoreCardProps = { chore: Chore, onComplete: (id: string) => void, isCompleting: boolean }
 
 export const ChoreCard = ({
                               chore,
                               onComplete,
                               isCompleting
-                          }: { chore: Chore, onComplete: (id: string) => void, isCompleting: boolean }) => {
+                          }: ChoreCardProps) => {
     const nextDueDate = calculateNextDueDate(chore);
     const status = getChoreStatus(chore, nextDueDate);
     const isActionable = status === 'Due' || status === 'Overdue';
