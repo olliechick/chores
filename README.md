@@ -1,73 +1,112 @@
-# React + TypeScript + Vite
+# 🧹 Chores
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A simple, clean web application for tracking household chores, powered by your personal Notion workspace.
 
-Currently, two official plugins are available:
+This app fetches chore definitions from a Notion database, intelligently calculates which chores are due, and allows you
+to mark them as complete.
+Completed chores are logged in a separate "Chore Log" database.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🚀 Developer Guidelines
 
-## React Compiler
+This guide will help you get a local copy up and running and explain the project structure.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### 🛠️ Tech Stack
 
-## Expanding the ESLint configuration
+* **Framework:** React (Vite)
+* **Language:** TypeScript
+* **Styling:** Tailwind CSS
+* **Icons:** Lucide React
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 1. Notion Setup (Required)
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+This app **will not run** without a properly configured Notion backend.
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+#### A. Create a Notion Integration
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations).
+2. Click **"New integration"**. Give it a name (e.g., "Chore App").
+3. For capabilities, ensure it has **"Read content," "Update content,"** and **"Insert content"** permissions.
+4. Submit and copy the **"Internal Integration Token."** This is your API key.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+#### B. Create the Databases
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+You need to create two databases in your Notion workspace.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+**Database 1: Chores (Your Main List)**
+
+1. Create a new **inline or full-page database**.
+2. Get its ID. The URL will be `notion.so/your-workspace/DATABASE_ID?v=...`. Copy the `DATABASE_ID`.
+3. Set up the following properties (case-sensitive):
+    * **`Name`** (Type: `Title`): The name of the chore (e.g., "Wash dishes").
+    * **`Assigned to`** (Type: `Person`): The person/people responsible.
+    * **`Days`** (Type: `Number`): How often the chore should be done (in days)
+    * **`Log`** (Type: `Relation`): A relation to the "Chore Log" database you'll create in the next step.
+
+**Database 2: Chore Log (Your History)**
+
+1. Create another new database.
+2. Get its ID from the URL.
+3. Set up the following properties:
+    * **`Date`** (Type: `Date`): The date the chore was completed.
+    * **`Completed by`** (Type: `Person`): The person who completed the chore.
+    * **`Chore Relation`** (Type: `Relation`): The other side of the relation pointing back to your "Chores" database.
+
+#### C. Share Databases with Integration
+
+1. Go to both the "Chores" database and the "Chore Log" database.
+2. Click the **Share** button in the top-right corner.
+3. Click **Invite** and select your "Chore App" integration.
+4. Give it **"Can edit"** permissions.
+
+### 2. Local Project Setup
+
+Once your Notion backend is ready, you can run the app.
+
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/olliechick/chores.git](https://github.com/olliechick/chores.git)
+   cd chores
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm i
+   ```
+
+3. **Run the development server:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Configure the app:**
+    * The app will load to a **Settings** modal.
+    * **Notion API Token:** Paste your "Internal Integration Token."
+    * **Chore Database ID:** Paste the ID of your "Chores" database.
+    * **Chore Log Database ID:** Paste the ID of your "Chore Log" database.
+    * Click **Save**. The app will save these to `localStorage` and attempt to fetch your chores.
+
+---
+
+### Coding Style
+
+* Use camel case for file names
+* For components, use one file per component, which live inside `src/components/`
+* Props Typing: Do not use `React.FC`. Define props using a dedicated `type` or `interface` (preferred).
+
+    ```typescript
+    // Good: Using a separate type (Preferred for reusability/clarity)
+    type UserProfileProps = {
+      user: User;
+    }
+    
+    export const UserProfile = ({ user }: UserProfileProps) => {
+      // ...
+    }
+    
+    // Bad: Avoid React.FC
+    import React from 'react';
+    
+    const UserProfile: React.FC<UserProfileProps> = ({ user }) => {
+      // ...
+    }
+    ```
