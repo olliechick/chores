@@ -1,10 +1,9 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { format, isToday, isTomorrow, isPast, isFuture, startOfToday, addDays, getDay } from 'date-fns';
-import { RotateCcw, CheckCircle2, Loader2, Calendar, LayoutGrid, Zap, User } from 'lucide-react';
-import type {Chore} from "./models.ts";
-import {calculateNextDueDate, getChoreStatus} from "./utils.ts";
-import {StatusBadge} from "./components/status-badge.tsx";
-import {ChoreCard} from "./components/chore-card.tsx";
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { addDays, isToday, startOfToday } from 'date-fns';
+import { Calendar, CheckCircle2, Loader2, RotateCcw, Zap } from 'lucide-react';
+import type { Chore } from "./models.ts";
+import { calculateNextDueDate, getChoreStatus } from "./utils.ts";
+import { ChoreCard } from "./components/chore-card.tsx";
 
 // --- TYPES & MOCK DATA ---
 
@@ -17,11 +16,29 @@ interface AppState {
 
 // Mock Data for the application (This will be replaced by Notion later)
 const mockInitialChores: Chore[] = [
-    { id: '1', name: 'Wash Dishes', assignee: 'Ollie', schedule: 'Daily', lastCompleted: startOfToday() },
-    { id: '2', name: 'Vacuum Living Room', assignee: 'Rosie', schedule: 'Weekly', lastCompleted: addDays(startOfToday(), -4) },
-    { id: '3', name: 'Mop Kitchen Floor', assignee: 'Ollie', schedule: 'Weekly', lastCompleted: addDays(startOfToday(), -2) },
-    { id: '4', name: 'Clean Bathroom', assignee: 'Rosie', schedule: 'BiWeekly', lastCompleted: addDays(startOfToday(), -15) },
-    { id: '5', name: 'Take Out Trash', assignee: 'Rosie', schedule: 'Daily', lastCompleted: addDays(startOfToday(), -1) },
+    {id: '1', name: 'Wash Dishes', assignee: 'Ollie', schedule: 'Daily', lastCompleted: startOfToday()},
+    {
+        id: '2',
+        name: 'Vacuum Living Room',
+        assignee: 'Rosie',
+        schedule: 'Weekly',
+        lastCompleted: addDays(startOfToday(), -4)
+    },
+    {
+        id: '3',
+        name: 'Mop Kitchen Floor',
+        assignee: 'Ollie',
+        schedule: 'Weekly',
+        lastCompleted: addDays(startOfToday(), -2)
+    },
+    {
+        id: '4',
+        name: 'Clean Bathroom',
+        assignee: 'Rosie',
+        schedule: 'BiWeekly',
+        lastCompleted: addDays(startOfToday(), -15)
+    },
+    {id: '5', name: 'Take Out Trash', assignee: 'Rosie', schedule: 'Daily', lastCompleted: addDays(startOfToday(), -1)},
 ];
 
 // --- FAKE API FUNCTIONS (To be replaced with Notion API calls) ---
@@ -39,16 +56,10 @@ const completeChoreApi = async (choreId: string, currentChores: Chore[]): Promis
     // In the mock, we simulate the Notion Rollup property updating 'lastCompleted'
     return currentChores.map(c =>
         c.id === choreId
-            ? { ...c, lastCompleted: new Date() }
+            ? {...c, lastCompleted: new Date()}
             : c
     );
 };
-
-// --- CORE LOGIC & SCHEDULING ---
-
-// --- REACT COMPONENTS ---
-
-// --- MAIN APP COMPONENT ---
 
 const App: React.FC = () => {
     const [state, setState] = useState<AppState>({
@@ -63,10 +74,10 @@ const App: React.FC = () => {
         const loadChores = async () => {
             try {
                 const data = await fetchChores();
-                setState(prev => ({ ...prev, chores: data, loading: false }));
+                setState(prev => ({...prev, chores: data, loading: false}));
             } catch (e) {
                 console.error("Failed to load chores:", e);
-                setState(prev => ({ ...prev, error: "Failed to load chores. Check Notion connection.", loading: false }));
+                setState(prev => ({...prev, error: "Failed to load chores. Check Notion connection.", loading: false}));
             }
         };
         loadChores();
@@ -80,8 +91,8 @@ const App: React.FC = () => {
         try {
             // API call to Notion Log database
             const updatedChores = await completeChoreApi(choreId, state.chores);
-            setState(prev => ({ ...prev, chores: updatedChores }));
-        } catch  {
+            setState(prev => ({...prev, chores: updatedChores}));
+        } catch {
             alert("Failed to complete chore. Please try again.");
         } finally {
             setIsCompletingId(null);
@@ -90,7 +101,7 @@ const App: React.FC = () => {
 
 
     // 3. Filtering and Sorting Logic (Memoized)
-    const { dueChores, completedTodayChores, futureChores } = useMemo(() => {
+    const {dueChores, completedTodayChores, futureChores} = useMemo(() => {
         const allChoresWithStatus = state.chores.map(chore => {
             const nextDue = calculateNextDueDate(chore);
             return {
@@ -119,7 +130,7 @@ const App: React.FC = () => {
             .filter(c => c.status === 'Future')
             .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime());
 
-        return { dueChores, completedTodayChores, futureChores };
+        return {dueChores, completedTodayChores, futureChores};
     }, [state.chores]);
 
     // --- RENDER FUNCTION ---
@@ -155,7 +166,8 @@ const App: React.FC = () => {
             )}
 
             {state.error && (
-                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md mb-8" role="alert">
+                <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg shadow-md mb-8"
+                     role="alert">
                     <p className="font-bold">Data Error</p>
                     <p>{state.error}</p>
                 </div>
@@ -170,7 +182,8 @@ const App: React.FC = () => {
                             <Zap className="w-6 h-6 mr-2 text-red-500" /> Action required ({dueChores.length})
                         </h2>
                         {dueChores.length === 0 ? (
-                            <div className="bg-white p-4 rounded-xl text-center text-gray-500 border border-indigo-200 shadow">
+                            <div
+                                className="bg-white p-4 rounded-xl text-center text-gray-500 border border-indigo-200 shadow">
                                 <p>🎉 All chores are up-to-date! Great job!</p>
                             </div>
                         ) : (
@@ -191,14 +204,16 @@ const App: React.FC = () => {
                     {completedTodayChores.length > 0 && (
                         <div>
                             <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
-                                <CheckCircle2 className="w-6 h-6 mr-2 text-green-600" /> Completed today ({completedTodayChores.length})
+                                <CheckCircle2 className="w-6 h-6 mr-2 text-green-600" /> Completed today
+                                ({completedTodayChores.length})
                             </h2>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 opacity-80">
                                 {completedTodayChores.map(chore => (
                                     <ChoreCard
                                         key={chore.id}
                                         chore={chore}
-                                        onComplete={() => {}} // No action needed on completed
+                                        onComplete={() => {
+                                        }} // No action needed on completed
                                         isCompleting={false}
                                     />
                                 ))}
@@ -217,7 +232,8 @@ const App: React.FC = () => {
                                 <ChoreCard
                                     key={chore.id}
                                     chore={chore}
-                                    onComplete={() => {}}
+                                    onComplete={() => {
+                                    }}
                                     isCompleting={false}
                                 />
                             ))}
