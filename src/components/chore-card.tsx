@@ -1,10 +1,14 @@
 import {calculateNextDueDate, getChoreStatus} from "../utils.ts";
-import {format} from "date-fns";
+import {formatDistanceToNowStrict, isToday, isYesterday} from "date-fns"; // <-- isSameDay is imported
 import {Calendar, CheckCircle2, Loader2, User, Zap} from "lucide-react";
 import type {Chore} from "../models.ts";
 import {StatusBadge} from "./status-badge.tsx";
 
-export const ChoreCard: React.FC<{ chore: Chore, onComplete: (id: string) => void, isCompleting: boolean }> = ({ chore, onComplete, isCompleting }) => {
+export const ChoreCard = ({
+                              chore,
+                              onComplete,
+                              isCompleting
+                          }: { chore: Chore, onComplete: (id: string) => void, isCompleting: boolean }) => {
     const nextDueDate = calculateNextDueDate(chore);
     const status = getChoreStatus(chore, nextDueDate);
     const isActionable = status === 'Due' || status === 'Overdue';
@@ -13,6 +17,17 @@ export const ChoreCard: React.FC<{ chore: Chore, onComplete: (id: string) => voi
     const borderColor = status === 'Overdue' ? 'border-red-500' :
         status === 'Due' ? 'border-amber-500' :
             'border-green-500';
+
+    // --- LOGIC FOR LAST COMPLETED TIME ---
+    const lastCompletedText = formatDistanceToNowStrict(chore.lastCompleted, {
+        addSuffix: true,
+        unit: 'day'
+    });
+
+    // Check if the completion date is the same as today's date
+    const lastCompletedDisplay = isToday(chore.lastCompleted)
+        ? 'Today'
+        : isYesterday(chore.lastCompleted) ? "Yesterday" : lastCompletedText;
 
     return (
         <div className={`flex flex-col rounded-xl p-4 shadow-xl transition-all duration-300 ease-in-out 
@@ -38,7 +53,7 @@ export const ChoreCard: React.FC<{ chore: Chore, onComplete: (id: string) => voi
                     <span className="font-semibold">{chore.assignee}</span>
                 </p>
                 <p>
-                    Last: {format(chore.lastCompleted, 'd MMM')}
+                    Last done: {lastCompletedDisplay}
                 </p>
             </div>
 
