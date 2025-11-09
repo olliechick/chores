@@ -28,7 +28,7 @@ export const StatusBadge = ({ chore }: StatusBadgeProps) => {
             color = 'bg-blue-100 text-blue-700 border border-blue-300';
             label = `Next: ${format(nextDueDate, 'd MMM')}`;
         }
-    } else if (status === 'Done' && isToday(chore.lastCompleted)) {
+    } else if (status === 'Done' && chore.lastCompleted && isToday(chore.lastCompleted)) {
         color = 'bg-green-500 text-white shadow-lg';
         label = 'Done today';
     } else if (status === 'Future') {

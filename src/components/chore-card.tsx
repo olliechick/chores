@@ -21,15 +21,15 @@ export const ChoreCard = ({
             'border-green-500';
 
     // --- LOGIC FOR LAST COMPLETED TIME ---
-    const lastCompletedText = formatDistanceToNowStrict(chore.lastCompleted, {
+    const lastCompletedText = chore.lastCompleted ? formatDistanceToNowStrict(chore.lastCompleted, {
         addSuffix: true,
         unit: 'day'
-    });
+    }) : "";
 
     // Check if the completion date is the same as today's date
-    const lastCompletedDisplay = isToday(chore.lastCompleted)
+    const lastCompletedDisplay = chore.lastCompleted ? isToday(chore.lastCompleted)
         ? 'Today'
-        : isYesterday(chore.lastCompleted) ? "Yesterday" : lastCompletedText;
+        : isYesterday(chore.lastCompleted) ? "Yesterday" : lastCompletedText : "";
 
     return (
         <div className={`flex flex-col rounded-xl p-4 shadow-xl transition-all duration-300 ease-in-out 
