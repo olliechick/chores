@@ -5,7 +5,15 @@ const notion = new Client({
     auth: process.env.NOTION_API_TOKEN,
 });
 
-export const handler: Handler = async (event) => {
+export const handler: Handler = async (event, context) => {
+    // If the user isn't logged in, block them.
+    if (!context.clientContext?.user) {
+        return {
+            statusCode: 401,
+            body: JSON.stringify({ error: "Unauthorized" }),
+        };
+    }
+
     // Only allow POST requests
     if (event.httpMethod !== 'POST') {
         return {

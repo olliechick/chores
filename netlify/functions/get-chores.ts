@@ -1,5 +1,5 @@
 import { Client } from '@notionhq/client';
-import type { Handler } from '@netlify/functions';
+import type { Handler, HandlerContext } from '@netlify/functions';
 import type { Chore } from '../../src/models';
 import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
 import { isDefined } from "../../src/utils";
@@ -69,8 +69,16 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
 };
 
 // --- Netlify Function Handler ---
+export const handler: Handler = async (_, context: HandlerContext) => {
 
-export const handler: Handler = async () => {
+    // If the user isn't logged in, block them.
+    if (!context.clientContext?.user) {
+        return {
+            statusCode: 401,
+            body: JSON.stringify({ error: "Unauthorized" }),
+        };
+    }
+
     try {
         const response = await notion.dataSources.query({
             data_source_id: process.env.CHORE_DB_ID,
