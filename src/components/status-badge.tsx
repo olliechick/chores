@@ -12,7 +12,7 @@ export const StatusBadge = ({ chore }: StatusBadgeProps) => {
     const status = getChoreStatus(chore, nextDueDate);
 
     let color = 'bg-gray-200 text-gray-700';
-    let label = `Next: ${format(nextDueDate, 'MMM dd')}`;
+    let label = `Next: ${format(nextDueDate, 'd MMM')}`;
 
     if (status === 'Overdue') {
         color = 'bg-red-100 text-red-700 border border-red-300 animate-pulse';
@@ -33,7 +33,7 @@ export const StatusBadge = ({ chore }: StatusBadgeProps) => {
         label = 'Done today';
     } else if (status === 'Future') {
         color = 'bg-gray-100 text-gray-500 border border-gray-300';
-        label = `Due ${format(nextDueDate, 'MMM dd')}`;
+        label = `Due ${format(nextDueDate, 'd MMM')}`;
     }
 
     return (
