@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { addDays, isToday, startOfToday } from 'date-fns';
+import { isToday } from 'date-fns';
 import { Calendar, CheckCircle2, Loader2, RotateCcw, Settings, Zap } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import type { Chore } from "./models";
+import type { AppSettings, Chore } from "./models";
 import { calculateNextDueDate, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { SettingsPage } from "./components/settings-page";
 import { useLocalStorage } from "./hooks/use-local-storage";
+import { completeChoreApi, fetchChores } from "./notion-api";
 
 interface AppState {
     chores: Chore[];
@@ -14,66 +15,7 @@ interface AppState {
     error: string | null;
 }
 
-interface AppSettings {
-    token: string;
-    choreDbId: string;
-    choreLogDbId: string;
-}
-
 const APP_SETTINGS_KEY = 'chore_app_settings';
-
-// Mock Data
-const mockInitialChores: Chore[] = [
-    { id: '1', name: 'Wash Dishes', assignee: 'Ollie', schedule: 'Daily', lastCompleted: startOfToday() },
-    {
-        id: '2',
-        name: 'Vacuum Living Room',
-        assignee: 'Rosie',
-        schedule: 'Weekly',
-        lastCompleted: addDays(startOfToday(), -4)
-    },
-    {
-        id: '3',
-        name: 'Mop Kitchen Floor',
-        assignee: 'Ollie',
-        schedule: 'Weekly',
-        lastCompleted: addDays(startOfToday(), -2)
-    },
-    {
-        id: '4',
-        name: 'Clean Bathroom',
-        assignee: 'Rosie',
-        schedule: 'BiWeekly',
-        lastCompleted: addDays(startOfToday(), -15)
-    },
-    {
-        id: '5',
-        name: 'Take Out Trash',
-        assignee: 'Rosie',
-        schedule: 'Daily',
-        lastCompleted: addDays(startOfToday(), -1)
-    },
-];
-
-// --- FAKE API FUNCTIONS (To be replaced with Notion API calls) ---
-
-const fetchChores = async (settings: AppSettings): Promise<Chore[]> => {
-    console.log("Fetching chores with settings:", settings);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    return mockInitialChores;
-};
-
-const completeChoreApi = async (choreId: string, currentChores: Chore[], settings: AppSettings): Promise<Chore[]> => {
-    console.log(`Completing chore ${choreId} with settings:`, settings);
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // In the mock, we simulate the Notion Rollup property updating 'lastCompleted'
-    return currentChores.map(c =>
-        c.id === choreId
-            ? { ...c, lastCompleted: new Date() }
-            : c
-    );
-};
 
 const App = () => {
     const [state, setState] = useState<AppState>({
@@ -90,7 +32,7 @@ const App = () => {
     // State for modal
     const [settingsModalError, setSettingsModalError] = useState<string | null>(null);
 
-    // 1. Initial Data Fetch (or Mock Fetch)
+    // 1. Initial Data Fetch (Now uses real API)
     useEffect(() => {
         if (!settings) {
             setState({ chores: [], loading: false, error: null });
@@ -103,27 +45,35 @@ const App = () => {
                 setState(prev => ({ ...prev, chores: data, loading: false }));
             } catch (e) {
                 console.error("Failed to load chores:", e);
+                const errorMessage = e instanceof Error ? e.message : "Failed to load chores. Check Notion connection.";
                 setState(prev => ({
                     ...prev,
-                    error: "Failed to load chores. Check Notion connection.",
+                    error: errorMessage,
                     loading: false
                 }));
+                // Pop open settings if there's a data error
+                setIsSettingsOpen(true);
+                setSettingsModalError(errorMessage);
             }
         };
         loadChores();
     }, [settings]);
 
-    // 2. Chore Completion Handler
+    // 2. Chore Completion Handler (Now uses real API)
     const handleCompleteChore = useCallback(async (choreId: string) => {
-        if (isCompletingId || !settings) return;
+        if (isCompletingId || !settings) {
+            return;
+        }
 
         setIsCompletingId(choreId);
         try {
+            // Use the real completeChoreApi function
             const updatedChores = await completeChoreApi(choreId, state.chores, settings);
             setState(prev => ({ ...prev, chores: updatedChores }));
             toast.success("Chore completed!");
-        } catch {
-            toast.error("Failed to complete chore. Please try again.");
+        } catch (e) {
+            const errorMessage = e instanceof Error ? e.message : "Failed to complete chore. Please try again.";
+            toast.error(errorMessage);
         } finally {
             setIsCompletingId(null);
         }
@@ -146,8 +96,12 @@ const App = () => {
             .filter(c => (c.status === 'Due' || c.status === 'Overdue'))
             .sort((a, b) => {
                 // Sort Overdue first
-                if (a.status === 'Overdue' && b.status !== 'Overdue') return -1;
-                if (b.status === 'Overdue' && a.status !== 'Overdue') return 1;
+                if (a.status === 'Overdue' && b.status !== 'Overdue') {
+                    return -1;
+                }
+                if (b.status === 'Overdue' && a.status !== 'Overdue') {
+                    return 1;
+                }
                 // Then by next due date
                 return a.nextDue.getTime() - b.nextDue.getTime();
             });

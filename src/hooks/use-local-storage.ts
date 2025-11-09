@@ -1,4 +1,3 @@
-// file: src/hooks/useLocalStorage.ts
 import { useEffect, useState } from 'react';
 
 /**

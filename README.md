@@ -39,8 +39,13 @@ You need to create two databases in your Notion workspace.
 3. Set up the following properties (case-sensitive):
     * **`Name`** (Type: `Title`): The name of the chore (e.g., "Wash dishes").
     * **`Assigned to`** (Type: `Person`): The person/people responsible.
-    * **`Days`** (Type: `Number`): How often the chore should be done (in days)
-    * **`Log`** (Type: `Relation`): A relation to the "Chore Log" database you'll create in the next step.
+    * **`Days`** (Type: `Number`): How often the chore should be done (in days). (e.g., `1` for daily, `7` for weekly).
+    * **`Log`** (Type: `Relation`): A relation to the "Chore Log" database you'll create in the next step. (Hide this
+      property).
+    * **`Last Completed`** (Type: `Rollup`):
+        * **Relation:** Select `Log`
+        * **Property:** Select `Date`
+        * **Calculate:** Select `Latest date`
 
 **Database 2: Chore Log (Your History)**
 
@@ -89,7 +94,7 @@ Once your Notion backend is ready, you can run the app.
 
 ### Coding Style
 
-* Use camel case for file names
+* Use kebab case for file names
 * For components, use one file per component, which live inside `src/components/`
 * Props Typing: Do not use `React.FC`. Define props using a dedicated `type` or `interface` (preferred).
 
