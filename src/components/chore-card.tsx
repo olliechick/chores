@@ -48,7 +48,7 @@ export const ChoreCard = ({
                 </h3>
             </div>
 
-            {/* Details (Assignee & Last Completed) */}
+            {/* Details (Assignee & Last completed at) */}
             <div className="mt-1 mb-3 text-sm text-gray-600 flex justify-between items-center">
                 <p className="flex items-center">
                     <User className="w-4 h-4 mr-1 text-indigo-500" />

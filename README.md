@@ -42,7 +42,7 @@ You need to create two databases in your Notion workspace.
     * **`Days`** (Type: `Number`): How often the chore should be done (in days). (e.g., `1` for daily, `7` for weekly).
     * **`Log`** (Type: `Relation`): A relation to the "Chore Log" database you'll create in the next step. (Hide this
       property).
-    * **`Last Completed`** (Type: `Rollup`):
+    * **`Last completed at`** (Type: `Rollup`):
         * **Relation:** Select `Log`
         * **Property:** Select `Date`
         * **Calculate:** Select `Latest date`

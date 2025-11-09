@@ -42,10 +42,10 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         }
         const schedule = daysProp.number; // Use the number directly
 
-        // 5. Get Last Completed (Rollup) - ASSUMED to exist per README
-        const lastCompletedProp = props['Last Completed'];
+        // 5. Get Last completed at (Rollup)
+        const lastCompletedProp = props['Last completed at'];
         if (lastCompletedProp?.type !== 'rollup' || !lastCompletedProp.rollup) {
-            console.warn(`Missing 'Last Completed' Rollup property for chore: ${name}`);
+            console.warn(`Missing 'Last completed at' Rollup property for chore: ${name}`);
             return null;
         }
 
