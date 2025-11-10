@@ -25,7 +25,6 @@ const App = () => {
         loading: false,
         error: null,
     });
-    const [isCompletingId, setIsCompletingId] = useState<string | null>(null);
 
     // Auth state
     const [user, setUser] = useState<netlifyIdentity.User | null>(netlifyIdentity.currentUser());
@@ -102,11 +101,9 @@ const App = () => {
     }, [user]); // Re-run this effect when the user logs in or out
 
     // 3. Chore Completion Handler
-    const handleCompleteChore = useCallback(async (choreId: string) => {
-        if (isCompletingId || !currentUserId) {
-            if (!currentUserId) {
-                toast.error("Please select a user first.");
-            }
+    const handleCompleteChore = useCallback((choreId: string) => {
+        if (!currentUserId) {
+            toast.error("Please select a user first.");
             return;
         }
 
@@ -115,22 +112,52 @@ const App = () => {
             return;
         }
 
-        setIsCompletingId(choreId);
-        try {
-            const updatedChores = await completeChoreApi(
-                choreId,
-                currentUserId, // Pass the ID from the dropdown
-                state.chores
-            );
-            setState(prev => ({ ...prev, chores: updatedChores }));
-            toast.success("Chore completed!");
-        } catch (e) {
-            const errorMessage = e instanceof Error ? e.message : "Failed to complete chore. Please try again.";
-            toast.error(errorMessage);
-        } finally {
-            setIsCompletingId(null);
-        }
-    }, [state.chores, isCompletingId, currentUserId]);
+        // 1. Store original state for the undo action
+        const originalChores = state.chores;
+
+        // 2. Create and set the optimistic state (mark as done *now*)
+        const optimisticChores = originalChores.map(c =>
+            c.id === choreId
+                ? { ...c, lastCompleted: new Date() }
+                : c
+        );
+        setState(prev => ({ ...prev, chores: optimisticChores }));
+
+        // 3. Schedule the actual API call
+        const UNDO_DURATION = 4000; // 4 seconds
+        const timerId = setTimeout(() => {
+            // Time's up, user didn't undo. Call the API.
+            completeChoreApi(choreId, currentUserId)
+                .catch((e) => {
+                    // API call FAILED! Revert state and show error.
+                    console.error("API call failed:", e);
+                    const errorMessage = e instanceof Error ? e.message : "Failed to save chore.";
+                    toast.error(`Failed to save '${choreToComplete.name}'. ${errorMessage}`);
+                    setState(prev => ({ ...prev, chores: originalChores }));
+                });
+        }, UNDO_DURATION);
+
+        // 4. Show the toast with an undo button
+        toast.success(
+            (t) => ( // 't' is the toast object
+                <div className="flex items-center justify-between w-full">
+                    <span className="mr-4">Chore completed!</span>
+                    <button
+                        className="px-3 py-1 text-sm font-semibold text-indigo-600 bg-white rounded-md shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                        onClick={() => {
+                            clearTimeout(timerId); // Cancel the pending API call
+                            setState(prev => ({ ...prev, chores: originalChores })); // Revert state
+                            toast.dismiss(t.id); // Close this toast
+                        }}
+                    >
+                        Undo
+                    </button>
+                </div>
+            ),
+            { duration: UNDO_DURATION } // Toast duration matches the timer
+        );
+
+    }, [state.chores, currentUserId]);
 
 
     // 4. Filtering and Sorting Logic (Memoized)
@@ -281,7 +308,6 @@ const App = () => {
                                                 key={chore.id}
                                                 chore={chore}
                                                 onComplete={handleCompleteChore}
-                                                isCompleting={isCompletingId === chore.id}
                                             />
                                         ))}
                                     </div>
@@ -300,9 +326,6 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
-                                                onComplete={() => {
-                                                }}
-                                                isCompleting={false}
                                             />
                                         ))}
                                     </div>
@@ -322,7 +345,6 @@ const App = () => {
                                                 key={chore.id}
                                                 chore={chore}
                                                 onComplete={handleCompleteChore}
-                                                isCompleting={isCompletingId === chore.id}
                                             />
                                         ))}
                                     </div>

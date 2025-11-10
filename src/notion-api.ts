@@ -38,15 +38,13 @@ export const fetchChores = async (): Promise<Chore[]> => {
         lastCompleted: chore.lastCompleted ? new Date(chore.lastCompleted) : null,
     }));
 };
-
 /**
  * Logs a chore by telling the backend proxy to do it.
  */
 export const completeChoreApi = async (
     choreId: string,
     completedById: string,
-    currentChores: Chore[],
-): Promise<Chore[]> => {
+): Promise<void> => {
 
     const response = await fetch('/.netlify/functions/complete-chore', {
         method: 'POST',
@@ -67,11 +65,4 @@ export const completeChoreApi = async (
         const err = await response.json();
         throw new Error(err.error || "Failed to complete chore.");
     }
-
-    // Optimistic update (same as before)
-    return currentChores.map(c =>
-        c.id === choreId
-            ? { ...c, lastCompleted: new Date() }
-            : c
-    );
 };

@@ -1,15 +1,14 @@
 import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
 import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
-import { Calendar, CheckCircle2, Loader2, User, Zap } from "lucide-react";
+import { Calendar, CheckCircle2, User, Zap } from "lucide-react";
 import type { Chore } from "../models.ts";
 import { StatusBadge } from "./status-badge.tsx";
 
-type ChoreCardProps = { chore: Chore, onComplete: (id: string) => void, isCompleting: boolean }
+type ChoreCardProps = { chore: Chore, onComplete?: (id: string) => void }
 
 export const ChoreCard = ({
                               chore,
-                              onComplete,
-                              isCompleting
+                              onComplete
                           }: ChoreCardProps) => {
     const nextDueDate = calculateNextDueDate(chore);
     const status = getChoreStatus(chore, nextDueDate);
@@ -62,17 +61,12 @@ export const ChoreCard = ({
 
                 {isActionable && (
                     <button
-                        onClick={() => onComplete(chore.id)}
-                        disabled={isCompleting}
+                        onClick={() => onComplete?.(chore.id)}
                         className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors duration-200
-                        ${isCompleting ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer'}`}
+                        bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer`}
                     >
-                        {isCompleting ? (
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        ) : (
-                            <CheckCircle2 className="w-4 h-4 mr-2" />
-                        )}
-                        {isCompleting ? 'Completing...' : 'Mark done'}
+                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                        Mark done
                     </button>
                 )}
                 {!isActionable && status === 'Done' && (
