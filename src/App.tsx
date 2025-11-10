@@ -77,11 +77,15 @@ const App = () => {
                     const userList: AppUser[] = Array.from(users.entries()).map(([id, name]) => ({ id, name }));
                     setAllUsers(userList);
 
-                    const netlifyUserName = user.user_metadata?.full_name;
-                    const matchingNotionUser = netlifyUserName
-                        ? userList.find(notionUser => notionUser.name === netlifyUserName)
-                        : null;
+                    // Try to find the logged-in user in the Notion user list
+                    const netlifyUserFullName = user.user_metadata?.full_name;
 
+                    // Get the first name from the Netlify user
+                    const netlifyUserFirstName = netlifyUserFullName ? netlifyUserFullName.split(' ')[0] : null;
+
+                    const matchingNotionUser = netlifyUserFirstName
+                        ? userList.find(notionUser => notionUser.name === netlifyUserFirstName)
+                        : null;
                     if (matchingNotionUser) {
                         // If we find a match, set them as the default
                         setCurrentUserId(matchingNotionUser.id);

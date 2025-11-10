@@ -44,10 +44,15 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         const lastCompletedDate = lastCompletedProp.rollup.type === 'date' ? lastCompletedProp.rollup.date?.start : null;
 
         const assignees: AppUser[] = assigneeProp.people.map(person => {
-            const personName = ('name' in person ? person.name : person.id) || 'Unassigned';
+            let personName = ('name' in person ? person.name : person.id) || 'Unassigned';
+
+            // Get only the first name
+            if (personName !== 'Unassigned') {
+                personName = personName.split(' ')[0];
+            }
+
             return { id: person.id, name: personName };
         });
-
         return {
             id,
             name,
