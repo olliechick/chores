@@ -36,9 +36,9 @@ export const handler: Handler = async (event, context) => {
 
         // 3. Create the log page
         await notion.pages.create({
-            parent: { database_id: process.env.CHORE_LOG_DB_ID! },
+            parent: { data_source_id: process.env.CHORE_LOG_DB_ID! },
             properties: {
-                'Name': { type: 'title', title: [{ type: 'text', text: { content: "" } }] },
+                '': { type: 'title', title: [{ type: 'text', text: { content: "" } }] },
                 'Date': { type: 'date', date: { start: new Date().toISOString().split('T')[0] } },
                 'Completed by': { type: 'people', people: [{ id: completedById }] },
                 'Chore': { type: 'relation', relation: [{ id: choreId }] },

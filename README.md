@@ -56,6 +56,7 @@ You need to create two databases in your Notion workspace.
 1. Create another new database.
 2. Get its ID from the URL.
 3. Set up the following properties:
+    * *(empty string)* (Type: `Title`): We don't need anything here, but a data source item needs a `Title`.
     * **`Date`** (Type: `Date`): The date the chore was completed.
     * **`Completed by`** (Type: `Person`): The person who completed the chore.
     * **`Chore Relation`** (Type: `Relation`): The other side of the relation pointing back to your "Chores" database.
