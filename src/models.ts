@@ -1,12 +1,18 @@
-// Define the structure for a Chore item (Chore Definition)
+export interface AppUser {
+    id: string;
+    name: string;
+}
+
 export interface Chore {
     id: string; // Notion Page ID
     name: string;
-    assignee: string; // The person's name
-    assigneeId: string; // The person's Notion User ID
+    assignees: AppUser[]; // An array of people assigned
     schedule: number; // How often it should occur (in days)
     lastCompleted: Date | null; // The last time it was completed (Rollup from Log)
 }
+
+// This AppSettings model is no longer needed
+// export interface AppSettings { ... }
 
 export interface AppSettings {
     token: string;

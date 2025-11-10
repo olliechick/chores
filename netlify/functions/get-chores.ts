@@ -1,12 +1,12 @@
 import { Client } from '@notionhq/client';
 import type { Handler, HandlerContext } from '@netlify/functions';
-import type { Chore } from '../../src/models';
+import type { AppUser, Chore } from '../../src/models';
 import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
 import { isDefined } from "../../src/utils";
 
 // Initialize the Notion client on the server
 const notion = new Client({
-    auth: process.env.NOTION_API_TOKEN, // Gets the key from Netlify's settings
+    auth: process.env.NOTION_API_TOKEN,
 });
 
 /**
@@ -19,47 +19,41 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         // 1. Get ID
         const id = page.id;
 
-        // 2. Get Name (Title)
         const nameProp = props['Name'];
+        const assigneeProp = props['Assigned to'];
+        const daysProp = props['Days'];
+        const lastCompletedProp = props['Last completed at'];
+
+        // --- Validation ---
         if (nameProp?.type !== 'title' || nameProp.title.length === 0) {
             return null;
         }
-        const name = nameProp.title[0].plain_text;
-
-        // 3. Get Assignee (Person) - We need both name and ID
-        const assigneeProp = props['Assigned to'];
         if (assigneeProp?.type !== 'people' || assigneeProp.people.length === 0) {
             return null;
         }
-        const person = assigneeProp.people[0]
-        const assigneeName = ('name' in person ? person.name : person.id) || 'Unassigned';
-        const assigneeId = assigneeProp.people[0].id;
-
-        // 4. Get Days (Number) and use it as the schedule
-        const daysProp = props['Days'];
         if (daysProp?.type !== 'number' || daysProp.number === null) {
             return null;
         }
-        const schedule = daysProp.number; // Use the number directly
-
-        // 5. Get Last completed at (Rollup)
-        const lastCompletedProp = props['Last completed at'];
         if (lastCompletedProp?.type !== 'rollup' || !lastCompletedProp.rollup) {
-            console.warn(`Missing 'Last completed at' Rollup property for chore: ${name}`);
+            console.warn(`Missing 'Last completed at' Rollup for: ${nameProp.title[0].plain_text}`);
             return null;
         }
 
-        // If rollup is null (never completed), default to epoch
+        const name = nameProp.title[0].plain_text;
+        const schedule = daysProp.number;
         const lastCompletedDate = lastCompletedProp.rollup.type === 'date' ? lastCompletedProp.rollup.date?.start : null;
-        const lastCompleted = lastCompletedDate ? new Date(lastCompletedDate) : null;
+
+        const assignees: AppUser[] = assigneeProp.people.map(person => {
+            const personName = ('name' in person ? person.name : person.id) || 'Unassigned';
+            return { id: person.id, name: personName };
+        });
 
         return {
             id,
             name,
-            assignee: assigneeName,
-            assigneeId,
+            assignees,
             schedule,
-            lastCompleted,
+            lastCompleted: lastCompletedDate ? new Date(lastCompletedDate) : null,
         };
 
     } catch (error) {

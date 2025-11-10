@@ -67,9 +67,12 @@ const App = () => {
                     // Parse unique users from chores for the dropdown
                     const users = new Map<string, string>();
                     data.forEach(chore => {
-                        if (!users.has(chore.assigneeId)) {
-                            users.set(chore.assigneeId, chore.assignee);
-                        }
+                        // Loop through each chore's assignees array
+                        chore.assignees.forEach(person => {
+                            if (!users.has(person.id)) {
+                                users.set(person.id, person.name);
+                            }
+                        });
                     });
 
                     const userList: AppUser[] = Array.from(users.entries()).map(([id, name]) => ({ id, name }));

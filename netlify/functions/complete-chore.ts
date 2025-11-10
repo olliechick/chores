@@ -6,7 +6,7 @@ const notion = new Client({
 });
 
 export const handler: Handler = async (event, context) => {
-    // If the user isn't logged in, block them.
+    // 1. Auth Check
     if (!context.clientContext?.user) {
         return {
             statusCode: 401,
@@ -14,7 +14,7 @@ export const handler: Handler = async (event, context) => {
         };
     }
 
-    // Only allow POST requests
+    // 2. Method Check
     if (event.httpMethod !== 'POST') {
         return {
             statusCode: 405,
@@ -23,24 +23,24 @@ export const handler: Handler = async (event, context) => {
     }
 
     try {
-        // The body from the frontend is a string, so we must parse it
         const body = JSON.parse(event.body || '{}');
-        const { choreId, name, assigneeId } = body;
 
-        if (!choreId || !name || !assigneeId) {
+        const { choreId, name, completedById } = body;
+
+        if (!choreId || !name || !completedById) {
             return {
                 statusCode: 400,
-                body: JSON.stringify({ error: "Missing required fields." }),
+                body: JSON.stringify({ error: "Missing required fields (choreId, name, completedById)." }),
             };
         }
 
-        // Create the new page in the "Chore Log"
+        // 3. Create the log page
         await notion.pages.create({
             parent: { database_id: process.env.CHORE_LOG_DB_ID! },
             properties: {
                 'Name': { type: 'title', title: [{ type: 'text', text: { content: name } }] },
                 'Date': { type: 'date', date: { start: new Date().toISOString().split('T')[0] } },
-                'Completed by': { type: 'people', people: [{ id: assigneeId }] },
+                'Completed by': { type: 'people', people: [{ id: completedById }] },
                 'Chore': { type: 'relation', relation: [{ id: choreId }] },
             },
         });

@@ -1,5 +1,6 @@
+// file: src/components/chore-card.tsx
 import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
-import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns"; // <-- isSameDay is imported
+import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
 import { Calendar, CheckCircle2, Loader2, User, Zap } from "lucide-react";
 import type { Chore } from "../models.ts";
 import { StatusBadge } from "./status-badge.tsx";
@@ -15,21 +16,19 @@ export const ChoreCard = ({
     const status = getChoreStatus(chore, nextDueDate);
     const isActionable = status === 'Due' || status === 'Overdue';
 
-    // Custom color for the card border based on status
     const borderColor = status === 'Overdue' ? 'border-red-500' :
         status === 'Due' ? 'border-amber-500' :
             'border-green-500';
 
     // --- LOGIC FOR LAST COMPLETED TIME ---
-    const lastCompletedText = chore.lastCompleted ? formatDistanceToNowStrict(chore.lastCompleted, {
-        addSuffix: true,
-        unit: 'day'
-    }) : "";
-
-    // Check if the completion date is the same as today's date
     const lastCompletedDisplay = chore.lastCompleted ? isToday(chore.lastCompleted)
         ? 'Today'
-        : isYesterday(chore.lastCompleted) ? "Yesterday" : lastCompletedText : "";
+        : isYesterday(chore.lastCompleted) ? "Yesterday" : formatDistanceToNowStrict(chore.lastCompleted, {
+            addSuffix: true,
+            unit: 'day'
+        }) : 'Never';
+
+    const assigneeNames = chore.assignees.map(a => a.name).join(', ');
 
     return (
         <div className={`flex flex-col rounded-xl p-4 shadow-xl transition-all duration-300 ease-in-out 
@@ -43,8 +42,8 @@ export const ChoreCard = ({
                     {status === 'Done' && <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />}
                     {status === 'Due' && <Calendar className="w-5 h-5 text-amber-500 mr-2" />}
                     <span className={status === 'Done' ? 'line-through text-gray-500' : ''}>
-                {chore.name}
-            </span>
+                        {chore.name}
+                    </span>
                 </h3>
             </div>
 
@@ -52,7 +51,7 @@ export const ChoreCard = ({
             <div className="mt-1 mb-3 text-sm text-gray-600 flex justify-between items-center">
                 <p className="flex items-center">
                     <User className="w-4 h-4 mr-1 text-indigo-500" />
-                    <span className="font-semibold">{chore.assignee}</span>
+                    <span className="font-semibold">{assigneeNames}</span>
                 </p>
                 <p>
                     Last done: {lastCompletedDisplay}
