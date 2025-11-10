@@ -78,8 +78,17 @@ const App = () => {
                     const userList: AppUser[] = Array.from(users.entries()).map(([id, name]) => ({ id, name }));
                     setAllUsers(userList);
 
-                    if (userList.length > 0) {
-                        setCurrentUserId(userList[0].id); // Default to first user
+                    const netlifyUserName = user.user_metadata?.full_name;
+                    const matchingNotionUser = netlifyUserName
+                        ? userList.find(notionUser => notionUser.name === netlifyUserName)
+                        : null;
+
+                    if (matchingNotionUser) {
+                        // If we find a match, set them as the default
+                        setCurrentUserId(matchingNotionUser.id);
+                    } else if (userList.length > 0) {
+                        // Otherwise, fallback to the first user in the list
+                        setCurrentUserId(userList[0].id);
                     }
 
                 } catch (e) {
