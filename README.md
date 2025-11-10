@@ -6,6 +6,8 @@ This app fetches chore definitions from a Notion database, intelligently calcula
 to mark them as complete.
 Completed chores are logged in a separate "Chore Log" database.
 
+This uses netlify functions as a backend to communicate with Notion.
+
 ## 🚀 Developer Guidelines
 
 This guide will help you get a local copy up and running and explain the project structure.
@@ -16,6 +18,8 @@ This guide will help you get a local copy up and running and explain the project
 * **Language:** TypeScript
 * **Styling:** Tailwind CSS
 * **Icons:** Lucide React
+
+---
 
 ### 1. Notion Setup (Required)
 
@@ -63,6 +67,8 @@ You need to create two databases in your Notion workspace.
 3. Click **Invite** and select your "Chore App" integration.
 4. Give it **"Can edit"** permissions.
 
+---
+
 ### 2. Local Project Setup
 
 Once your Notion backend is ready, you can run the app.
@@ -78,17 +84,28 @@ Once your Notion backend is ready, you can run the app.
    npm i
    ```
 
-3. **Run the development server:**
+3. **Set Environment Variables:**
+   This project uses Netlify Functions for its backend, which require server-side environment variables. Create a file
+   named `.env` in the root of the project:
+
+   ```text
+   # Your Notion Integration Token (from Step 1A)
+   NOTION_API_TOKEN=secret_...
+
+   # Your "Chores" Database ID (from Step 1B)
+   CHORE_DB_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+   # Your "Chore Log" Database ID (from Step 1B)
+   CHORE_LOG_DB_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+   ```
+   These variables will be read by the Netlify CLI.
+
+4. **Run the development server:**
    ```bash
    npm run dev
    ```
-
-4. **Configure the app:**
-    * The app will load to a **Settings** modal.
-    * **Notion API Token:** Paste your "Internal Integration Token."
-    * **Chore Database ID:** Paste the ID of your "Chores" database.
-    * **Chore Log Database ID:** Paste the ID of your "Chore Log" database.
-    * Click **Save**. The app will save these to `localStorage` and attempt to fetch your chores.
+   This command is configured to use `netlify dev`, which will start both your React frontend (on Vite) and your backend
+   Netlify Functions. The Netlify CLI will automatically open your browser to the correct local address.
 
 ---
 
