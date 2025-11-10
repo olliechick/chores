@@ -295,7 +295,7 @@ const App = () => {
                                         <CheckCircle2 className="w-6 h-6 mr-2 text-green-600" /> Completed today
                                         ({completedTodayChores.length})
                                     </h2>
-                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 opacity-80">
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {completedTodayChores.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
@@ -310,23 +310,24 @@ const App = () => {
                             )}
 
                             {/* Section 3: Future */}
-                            <details className="p-4 bg-white rounded-xl shadow border border-gray-100 cursor-pointer">
-                                <summary className="text-xl font-bold text-gray-600 flex items-center">
-                                    <Calendar className="w-5 h-5 mr-2 text-gray-400" />
-                                    Future schedule ({futureChores.length})
-                                </summary>
-                                <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 opacity-70">
-                                    {futureChores.map(chore => (
-                                        <ChoreCard
-                                            key={chore.id}
-                                            chore={chore}
-                                            onComplete={() => {
-                                            }}
-                                            isCompleting={false}
-                                        />
-                                    ))}
+                            {futureChores.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
+                                        <Calendar className="w-6 h-6 mr-2 text-gray-400" />
+                                        Future schedule ({futureChores.length})
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {futureChores.map(chore => (
+                                            <ChoreCard
+                                                key={chore.id}
+                                                chore={chore}
+                                                onComplete={handleCompleteChore}
+                                                isCompleting={isCompletingId === chore.id}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
-                            </details>
+                            )}
                         </main>
                     )}
                 </>

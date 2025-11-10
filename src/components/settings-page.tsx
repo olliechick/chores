@@ -1,4 +1,3 @@
-// file: src/components/settings-page.tsx
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, Save, X } from 'lucide-react';
 

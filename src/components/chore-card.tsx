@@ -1,4 +1,3 @@
-// file: src/components/chore-card.tsx
 import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
 import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
 import { Calendar, CheckCircle2, Loader2, User, Zap } from "lucide-react";
@@ -14,13 +13,12 @@ export const ChoreCard = ({
                           }: ChoreCardProps) => {
     const nextDueDate = calculateNextDueDate(chore);
     const status = getChoreStatus(chore, nextDueDate);
-    const isActionable = status === 'Due' || status === 'Overdue';
+    const isActionable = status !== 'Done';
 
     const borderColor = status === 'Overdue' ? 'border-red-500' :
         status === 'Due' ? 'border-amber-500' :
             'border-green-500';
 
-    // --- LOGIC FOR LAST COMPLETED TIME ---
     const lastCompletedDisplay = chore.lastCompleted ? isToday(chore.lastCompleted)
         ? 'Today'
         : isYesterday(chore.lastCompleted) ? "Yesterday" : formatDistanceToNowStrict(chore.lastCompleted, {
@@ -35,7 +33,7 @@ export const ChoreCard = ({
                     ${isActionable ? 'bg-white hover:shadow-2xl border-l-4 ' + borderColor : (status === 'Done' ? 'bg-green-50 border-l-4 border-green-300' : 'bg-gray-100 border-l-4 border-gray-300')} 
                     transform hover:-translate-y-0.5`}>
 
-            {/* Chore Name and Assignee */}
+            {/* Chore Name */}
             <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold truncate text-gray-800 flex items-center">
                     {status === 'Overdue' && <Zap className="w-5 h-5 text-red-500 mr-2" />}
@@ -66,8 +64,8 @@ export const ChoreCard = ({
                     <button
                         onClick={() => onComplete(chore.id)}
                         disabled={isCompleting}
-                        className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors duration-200 
-                        ${isCompleting ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg'}`}
+                        className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors duration-200
+                        ${isCompleting ? 'bg-gray-400 cursor-not-allowed' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer'}`}
                     >
                         {isCompleting ? (
                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -80,11 +78,6 @@ export const ChoreCard = ({
                 {!isActionable && status === 'Done' && (
                     <div className="text-green-600 text-sm font-semibold flex items-center">
                         <CheckCircle2 className="w-4 h-4 mr-1" /> Completed!
-                    </div>
-                )}
-                {!isActionable && status === 'Future' && (
-                    <div className="text-gray-500 text-sm font-semibold flex items-center">
-                        <Calendar className="w-4 h-4 mr-1" /> On track
                     </div>
                 )}
             </div>
