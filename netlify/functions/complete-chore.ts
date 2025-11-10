@@ -25,12 +25,12 @@ export const handler: Handler = async (event, context) => {
     try {
         const body = JSON.parse(event.body || '{}');
 
-        const { choreId, name, completedById } = body;
+        const { choreId, completedById } = body;
 
-        if (!choreId || !name || !completedById) {
+        if (!choreId || !completedById) {
             return {
                 statusCode: 400,
-                body: JSON.stringify({ error: "Missing required fields (choreId, name, completedById)." }),
+                body: JSON.stringify({ error: "Missing required fields (choreId, completedById)." }),
             };
         }
 
@@ -38,7 +38,7 @@ export const handler: Handler = async (event, context) => {
         await notion.pages.create({
             parent: { database_id: process.env.CHORE_LOG_DB_ID! },
             properties: {
-                'Name': { type: 'title', title: [{ type: 'text', text: { content: name } }] },
+                'Name': { type: 'title', title: [{ type: 'text', text: { content: "" } }] },
                 'Date': { type: 'date', date: { start: new Date().toISOString().split('T')[0] } },
                 'Completed by': { type: 'people', people: [{ id: completedById }] },
                 'Chore': { type: 'relation', relation: [{ id: choreId }] },
