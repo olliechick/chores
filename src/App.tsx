@@ -13,7 +13,7 @@ import {
     Zap
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import type { Chore } from "./models";
+import type { Chore, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { completeChoreApi, fetchChores } from "./notion-api";
@@ -177,7 +177,8 @@ const App = () => {
 
     // 4. Filtering and Sorting Logic (Memoized)
     const { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores } = useMemo(() => {
-        const allChoresWithStatus = state.chores.map(chore => {
+
+        const allChoresWithStatus: ChoreWithStatus[] = state.chores.map(chore => {
             const nextDue = calculateNextDueDate(chore);
             return {
                 ...chore,
@@ -186,38 +187,73 @@ const App = () => {
             };
         });
 
-        // Separate based on status
+        // --- Sorters ---
+
+        /** Sorts "mine" > "others", then by due date */
+        const futureSorter = (a: ChoreWithStatus, b: ChoreWithStatus) => {
+            const aIsMine = a.assignees.some(user => user.id === currentUserId);
+            const bIsMine = b.assignees.some(user => user.id === currentUserId);
+
+            // 1. Prioritize "My" chores
+            if (aIsMine && !bIsMine) {
+                return -1;
+            }
+            if (!aIsMine && bIsMine) {
+                return 1;
+            }
+
+            // 2. If both are "mine" or both are "not mine", sort by due date
+            return a.nextDue.getTime() - b.nextDue.getTime();
+        };
+
+        /** Sorts "mine" > "others", then "Overdue" > "Due", then by due date */
+        const dueSorter = (a: ChoreWithStatus, b: ChoreWithStatus) => {
+            const aIsMine = a.assignees.some(user => user.id === currentUserId);
+            const bIsMine = b.assignees.some(user => user.id === currentUserId);
+
+            // 1. Prioritize "My" chores
+            if (aIsMine && !bIsMine) {
+                return -1;
+            }
+            if (!aIsMine && bIsMine) {
+                return 1;
+            }
+
+            // 2. Both are "mine" or "not mine". Now, sort by Overdue.
+            if (a.status === 'Overdue' && b.status !== 'Overdue') {
+                return -1;
+            }
+            if (b.status === 'Overdue' && a.status !== 'Overdue') {
+                return 1;
+            }
+
+            // 3. Status is the same (both Overdue or both Due). Sort by date.
+            return a.nextDue.getTime() - b.nextDue.getTime();
+        };
+
+        // --- Separate based on status ---
         const dueChores = allChoresWithStatus
             .filter(c => (c.status === 'Due' || c.status === 'Overdue'))
-            .sort((a, b) => {
-                // Sort Overdue first
-                if (a.status === 'Overdue' && b.status !== 'Overdue') {
-                    return -1;
-                }
-                if (b.status === 'Overdue' && a.status !== 'Overdue') {
-                    return 1;
-                }
-                // Then by next due date
-                return a.nextDue.getTime() - b.nextDue.getTime();
-            });
+            .sort(dueSorter);
+
         const completedTodayChores = allChoresWithStatus
             .filter(c => c.status === 'Done' && c.lastCompleted && isToday(c.lastCompleted))
             .sort((a, b) => (b.lastCompleted?.getTime() ?? 0) - (a.lastCompleted?.getTime() ?? 0));
 
         const nextWeekChores = allChoresWithStatus
             .filter(c => c.status === 'NextWeek')
-            .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime());
+            .sort(futureSorter);
 
         const nextMonthChores = allChoresWithStatus
             .filter(c => c.status === 'NextMonth')
-            .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime());
+            .sort(futureSorter);
 
         const farFutureChores = allChoresWithStatus
             .filter(c => c.status === 'FarFuture')
-            .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime());
+            .sort(futureSorter);
 
         return { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores };
-    }, [state.chores]);
+    }, [state.chores, currentUserId]); // <-- Added currentUserId as a dependency
 
     // --- RENDER FUNCTION ---
 
@@ -362,7 +398,7 @@ const App = () => {
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <CalendarDays className="w-6 h-6 mr-2 text-blue-500" />
-                                        Next week ({nextWeekChores.length})
+                                        Next 7 Days ({nextWeekChores.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {nextWeekChores.map(chore => (
@@ -381,7 +417,7 @@ const App = () => {
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <CalendarRange className="w-6 h-6 mr-2 text-purple-500" />
-                                        Next month ({nextMonthChores.length})
+                                        Next 30 Days ({nextMonthChores.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {nextMonthChores.map(chore => (
@@ -400,7 +436,7 @@ const App = () => {
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <Calendar className="w-6 h-6 mr-2 text-gray-400" />
-                                        Far future ({farFutureChores.length})
+                                        Far Future ({farFutureChores.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {farFutureChores.map(chore => (

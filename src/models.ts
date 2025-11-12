@@ -12,8 +12,13 @@ export interface Chore {
     room: string | null; // The name of the 'Select' option for the room
 }
 
-// This AppSettings model is no longer needed
-// export interface AppSettings { ... }
+export type Status = 'Overdue' | 'Due' | 'Done' | 'NextWeek' | 'NextMonth' | 'FarFuture';
+
+// Define an internal type for the enhanced chore object
+export type ChoreWithStatus = Chore & {
+    status: Status
+    nextDue: Date;
+};
 
 export interface AppSettings {
     token: string;

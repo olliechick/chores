@@ -1,5 +1,5 @@
 import { addDays, isToday, isWithinInterval, startOfToday } from "date-fns";
-import type { Chore } from "./models.ts";
+import type { Chore, Status } from "./models.ts";
 
 export const isDefined = <T>(value: T | null | undefined): value is T => {
     return value !== null && value !== undefined
@@ -27,7 +27,7 @@ export const calculateNextDueDate = (chore: Chore): Date => {
 /**
  * Determines the status of the chore (Due, Overdue, or Done for today)
  */
-export const getChoreStatus = (chore: Chore, nextDueDate: Date): 'Overdue' | 'Due' | 'Done' | 'NextWeek' | 'NextMonth' | 'FarFuture' => {
+export const getChoreStatus = (chore: Chore, nextDueDate: Date): Status => {
     const today = startOfToday();
 
     // 1. Done check (uses lastCompleted, not nextDue)
