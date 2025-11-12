@@ -23,6 +23,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         const assigneeProp = props['Assigned to'];
         const daysProp = props['Days'];
         const lastCompletedProp = props['Last completed at'];
+        const roomProp = props['Room'];
 
         // --- Validation ---
         if (nameProp?.type !== 'title' || nameProp.title.length === 0) {
@@ -38,10 +39,15 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             console.warn(`Missing 'Last completed at' Rollup for: ${nameProp.title[0].plain_text}`);
             return null;
         }
+        if (roomProp && roomProp.type !== 'select') {
+            console.warn(`Invalid 'Room' property type for: ${nameProp.title[0].plain_text}`);
+            return null;
+        }
 
         const name = nameProp.title[0].plain_text;
         const schedule = daysProp.number;
         const lastCompletedDate = lastCompletedProp.rollup.type === 'date' ? lastCompletedProp.rollup.date?.start : null;
+        const room = (roomProp?.type === 'select' && roomProp.select) ? roomProp.select.name : null;
 
         const assignees: AppUser[] = assigneeProp.people.map(person => {
             let personName = ('name' in person ? person.name : person.id) || 'Unassigned';
@@ -59,6 +65,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             assignees,
             schedule,
             lastCompleted: lastCompletedDate ? new Date(lastCompletedDate) : null,
+            room,
         };
 
     } catch (error) {

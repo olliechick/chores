@@ -44,6 +44,7 @@ You need to create two databases in your Notion workspace.
     * **`Name`** (Type: `Title`): The name of the chore (e.g., "Wash dishes").
     * **`Assigned to`** (Type: `Person`): The person/people responsible.
     * **`Days`** (Type: `Number`): How often the chore should be done (in days). (e.g., `1` for daily, `7` for weekly).
+    * **`Room`** (Type: `Select`): The room the chore is in (e.g., "Kitchen", "Bathroom").
     * **`Log`** (Type: `Relation`): A relation to the "Chore Log" database you'll create in the next step. (Hide this
       property).
     * **`Last completed at`** (Type: `Rollup`):

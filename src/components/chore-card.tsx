@@ -1,6 +1,6 @@
 import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
 import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
-import { Calendar, CheckCircle2, User, Zap } from "lucide-react";
+import { Calendar, CheckCircle2, MapPin, User, Zap } from "lucide-react";
 import type { Chore } from "../models.ts";
 import { StatusBadge } from "./status-badge.tsx";
 
@@ -29,12 +29,12 @@ export const ChoreCard = ({
 
     return (
         <div className={`flex flex-col rounded-xl p-4 shadow-xl transition-all duration-300 ease-in-out 
-                    ${isActionable ? 'bg-white hover:shadow-2xl border-l-4 ' + borderColor : (status === 'Done' ? 'bg-green-50 border-l-4 border-green-300' : 'bg-gray-100 border-l-4 border-gray-300')} 
-                    transform hover:-translate-y-0.5`}>
+                 ${isActionable ? 'bg-white hover:shadow-2xl border-l-4 ' + borderColor : (status === 'Done' ? 'bg-green-50 border-l-4 border-green-300' : 'bg-gray-100 border-l-4 border-gray-300')} 
+                 transform hover:-translate-y-0.5`}>
 
             {/* Chore Name */}
-            <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold truncate text-gray-800 flex items-center">
+            <div className="flex flex-col items-start gap-0.5">
+                <h3 className="text-lg font-bold truncate text-gray-800 flex items-center text-left">
                     {status === 'Overdue' && <Zap className="w-5 h-5 text-red-500 mr-2" />}
                     {status === 'Done' && <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />}
                     {status === 'Due' && <Calendar className="w-5 h-5 text-amber-500 mr-2" />}
@@ -42,6 +42,14 @@ export const ChoreCard = ({
                         {chore.name}
                     </span>
                 </h3>
+
+                {/* Room */}
+                {chore.room && (
+                    <p className="flex items-center text-sm">
+                        <MapPin className="w-4 h-4 mr-1.5 text-indigo-400" />
+                        {chore.room}
+                    </p>
+                )}
             </div>
 
             {/* Details (Assignee & Last completed at) */}
@@ -63,7 +71,7 @@ export const ChoreCard = ({
                     <button
                         onClick={() => onComplete?.(chore.id)}
                         className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors duration-200
-                        bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer`}
+                         bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer`}
                     >
                         <CheckCircle2 className="w-4 h-4 mr-2" />
                         Mark done
@@ -78,4 +86,3 @@ export const ChoreCard = ({
         </div>
     );
 };
-
