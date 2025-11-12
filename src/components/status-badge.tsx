@@ -37,7 +37,7 @@ export const StatusBadge = ({ chore }: StatusBadgeProps) => {
             // on the due day, but differenceInDays is 0 until the next day.
             label = `Overdue`;
         }
-    } else if (status === 'Due' || status === 'Future') {
+    } else if (status === 'Due' || status === 'NextWeek' || status === 'NextMonth' || status === 'FarFuture') {
         if (isToday(nextDueDate)) {
             color = 'bg-amber-100 text-amber-700 border border-amber-300';
             label = 'Due today';

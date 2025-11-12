@@ -1,4 +1,4 @@
-import { addDays, isPast, isToday } from "date-fns";
+import { addDays, isToday, isWithinInterval, startOfToday } from "date-fns";
 import type { Chore } from "./models.ts";
 
 export const isDefined = <T>(value: T | null | undefined): value is T => {
@@ -27,19 +27,44 @@ export const calculateNextDueDate = (chore: Chore): Date => {
 /**
  * Determines the status of the chore (Due, Overdue, or Done for today)
  */
-export const getChoreStatus = (chore: Chore, nextDueDate: Date): 'Overdue' | 'Due' | 'Done' | 'Future' => {
+export const getChoreStatus = (chore: Chore, nextDueDate: Date): 'Overdue' | 'Due' | 'Done' | 'NextWeek' | 'NextMonth' | 'FarFuture' => {
+    const today = startOfToday();
+
+    // 1. Done check (uses lastCompleted, not nextDue)
     // If completed today, it's done.
     if (chore.lastCompleted && isToday(chore.lastCompleted)) {
         return 'Done';
     }
 
-    // If the next due date is today or earlier (and not done today)
-    if (isPast(nextDueDate) || isToday(nextDueDate)) {
-        if (isPast(nextDueDate) && !isToday(nextDueDate)) {
-            return 'Overdue';
-        }
+    // 2. Overdue check
+    // Use `< today` to check if it was due yesterday or earlier
+    if (nextDueDate < today) {
+        return 'Overdue';
+    }
+
+    // 3. Due check
+    // isToday checks the calendar day
+    if (isToday(nextDueDate)) {
         return 'Due';
     }
 
-    return 'Future'; // Due date is in the future
+    // --- At this point, nextDueDate is tomorrow or later ---
+
+    // 4. Next Week check
+    const endOfWeek = addDays(today, 7);
+    // isWithinInterval is inclusive, so this checks [today, today + 7 days]
+    // Since we already know it's not today, this effectively checks [tomorrow, today + 7 days]
+    if (isWithinInterval(nextDueDate, { start: today, end: endOfWeek })) {
+        return 'NextWeek';
+    }
+
+    // 5. Next Month check
+    const endOfMonth = addDays(today, 31);
+    // Checks (today + 8 days, today + 30 days]
+    if (isWithinInterval(nextDueDate, { start: endOfWeek, end: endOfMonth })) {
+        return 'NextMonth';
+    }
+
+    // 6. Far Future check
+    return 'FarFuture'; // Anything else (more than 30 days away)
 };

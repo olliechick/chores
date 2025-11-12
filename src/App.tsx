@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { isToday } from 'date-fns';
-import { Calendar, CheckCircle2, Loader2, LogIn, LogOut, RotateCcw, User, Zap } from 'lucide-react';
+import {
+    Calendar,
+    CalendarDays,
+    CalendarRange,
+    CheckCircle2,
+    Loader2,
+    LogIn,
+    LogOut,
+    RotateCcw,
+    User,
+    Zap
+} from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import type { Chore } from "./models";
 import { calculateNextDueDate, getChoreStatus } from "./utils";
@@ -165,7 +176,7 @@ const App = () => {
 
 
     // 4. Filtering and Sorting Logic (Memoized)
-    const { dueChores, completedTodayChores, futureChores } = useMemo(() => {
+    const { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores } = useMemo(() => {
         const allChoresWithStatus = state.chores.map(chore => {
             const nextDue = calculateNextDueDate(chore);
             return {
@@ -192,10 +203,20 @@ const App = () => {
         const completedTodayChores = allChoresWithStatus
             .filter(c => c.status === 'Done' && c.lastCompleted && isToday(c.lastCompleted))
             .sort((a, b) => (b.lastCompleted?.getTime() ?? 0) - (a.lastCompleted?.getTime() ?? 0));
-        const futureChores = allChoresWithStatus
-            .filter(c => c.status === 'Future')
+
+        const nextWeekChores = allChoresWithStatus
+            .filter(c => c.status === 'NextWeek')
             .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime());
-        return { dueChores, completedTodayChores, futureChores };
+
+        const nextMonthChores = allChoresWithStatus
+            .filter(c => c.status === 'NextMonth')
+            .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime());
+
+        const farFutureChores = allChoresWithStatus
+            .filter(c => c.status === 'FarFuture')
+            .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime());
+
+        return { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores };
     }, [state.chores]);
 
     // --- RENDER FUNCTION ---
@@ -336,15 +357,53 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 3: Future */}
-                            {futureChores.length > 0 && (
+                            {/* Section 3: Next Week */}
+                            {nextWeekChores.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
+                                        <CalendarDays className="w-6 h-6 mr-2 text-blue-500" />
+                                        Next week ({nextWeekChores.length})
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {nextWeekChores.map(chore => (
+                                            <ChoreCard
+                                                key={chore.id}
+                                                chore={chore}
+                                                onComplete={handleCompleteChore}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Section 4: Next Month */}
+                            {nextMonthChores.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
+                                        <CalendarRange className="w-6 h-6 mr-2 text-purple-500" />
+                                        Next month ({nextMonthChores.length})
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {nextMonthChores.map(chore => (
+                                            <ChoreCard
+                                                key={chore.id}
+                                                chore={chore}
+                                                onComplete={handleCompleteChore}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Section 5: Far Future */}
+                            {farFutureChores.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <Calendar className="w-6 h-6 mr-2 text-gray-400" />
-                                        Future schedule ({futureChores.length})
+                                        Far future ({farFutureChores.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {futureChores.map(chore => (
+                                        {farFutureChores.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
