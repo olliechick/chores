@@ -37,7 +37,7 @@ export const StatusBadge = ({ chore }: StatusBadgeProps) => {
             // on the due day, but differenceInDays is 0 until the next day.
             label = `Overdue`;
         }
-    } else if (status === 'Due') {
+    } else if (status === 'Due' || status === 'Future') {
         if (isToday(nextDueDate)) {
             color = 'bg-amber-100 text-amber-700 border border-amber-300';
             label = 'Due today';
@@ -45,15 +45,13 @@ export const StatusBadge = ({ chore }: StatusBadgeProps) => {
             color = 'bg-emerald-100 text-emerald-700 border border-emerald-300';
             label = 'Due tomorrow';
         } else {
-            color = 'bg-blue-100 text-blue-700 border border-blue-300';
-            label = `Next: ${format(nextDueDate, 'd MMM')}`;
+            color = 'bg-gray-100 text-gray-500 border border-gray-300';
+            const daysUntilDue = differenceInDays(nextDueDate, today);
+            label = `Due in ${daysUntilDue} days`;
         }
     } else if (status === 'Done' && chore.lastCompleted && isToday(chore.lastCompleted)) {
-        color = 'bg-green-500 text-white shadow-lg';
+        color = 'bg-green-500 text-white border border-green-500';
         label = 'Done today';
-    } else if (status === 'Future') {
-        color = 'bg-gray-100 text-gray-500 border border-gray-300';
-        label = `Due ${format(nextDueDate, 'd MMM')}`;
     }
 
     return (
