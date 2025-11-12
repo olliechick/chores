@@ -18,18 +18,10 @@ export const calculateNextDueDate = (chore: Chore): Date => {
     }
 
     // If schedule is 0 or invalid, prevent infinite loops
-    const daysToAdd = chore.schedule > 0 ? chore.schedule : 7;
+    const daysToAdd = chore.schedule;
 
-    // Calculate the next possible due date based on the schedule
-    let nextDue = addDays(last, daysToAdd);
-
-    // Ensure the date is not in the past relative to today
-    while (isPast(nextDue) && !isToday(nextDue)) {
-        // If the next calculated date is in the past, push it forward
-        nextDue = addDays(nextDue, daysToAdd);
-    }
-
-    return nextDue;
+    // Calculate the next due date based on the schedule
+    return addDays(last, daysToAdd);
 };
 
 /**
