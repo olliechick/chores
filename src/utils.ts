@@ -5,16 +5,15 @@ export const isDefined = <T>(value: T | null | undefined): value is T => {
     return value !== null && value !== undefined
 };
 
-
 /**
  * Calculates the next due date for a given chore based on its schedule.
  */
 export const calculateNextDueDate = (chore: Chore): Date => {
     const last = chore.lastCompleted;
 
-    // If never completed, return today.
+    // If never completed, return today (or start of today to be safe)
     if (!last) {
-        return new Date();
+        return startOfToday();
     }
 
     // If schedule is 0 or invalid, prevent infinite loops
@@ -30,41 +29,34 @@ export const calculateNextDueDate = (chore: Chore): Date => {
 export const getChoreStatus = (chore: Chore, nextDueDate: Date): Status => {
     const today = startOfToday();
 
-    // 1. Done check (uses lastCompleted, not nextDue)
+    // 1. Done check
     // If completed today, it's done.
     if (chore.lastCompleted && isToday(chore.lastCompleted)) {
         return 'Done';
     }
 
     // 2. Overdue check
-    // Use `< today` to check if it was due yesterday or earlier
+    // If nextDueDate is strictly before today (e.g. Yesterday 00:00:00)
     if (nextDueDate < today) {
         return 'Overdue';
     }
 
     // 3. Due check
-    // isToday checks the calendar day
     if (isToday(nextDueDate)) {
         return 'Due';
     }
 
-    // --- At this point, nextDueDate is tomorrow or later ---
-
-    // 4. Next Week check
+    // 4. Future checks
     const endOfWeek = addDays(today, 7);
-    // isWithinInterval is inclusive, so this checks [today, today + 7 days]
-    // Since we already know it's not today, this effectively checks [tomorrow, today + 7 days]
+    const endOfMonth = addDays(today, 31);
+
     if (isWithinInterval(nextDueDate, { start: today, end: endOfWeek })) {
         return 'NextWeek';
     }
 
-    // 5. Next Month check
-    const endOfMonth = addDays(today, 31);
-    // Checks (today + 8 days, today + 30 days]
     if (isWithinInterval(nextDueDate, { start: endOfWeek, end: endOfMonth })) {
         return 'NextMonth';
     }
 
-    // 6. Far Future check
-    return 'FarFuture'; // Anything else (more than 30 days away)
+    return 'FarFuture';
 };

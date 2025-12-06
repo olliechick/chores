@@ -35,7 +35,7 @@ export const handler: Handler = async (event) => {
             return { statusCode: 401, body: JSON.stringify({ error: "Unauthorized" }) };
         }
 
-        // 2. Parse Data
+        // 2. Parse Body
         if (!event.body) {
             throw new Error("Missing body");
         }
@@ -45,21 +45,31 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: "Missing choreId or completedById" }) };
         }
 
-        // 3. Create the log page
+        // 3. Get Current Date in NZ Time
+        // Netlify servers run in UTC. We must force 'Pacific/Auckland'.
+        // 'en-CA' locale formats as YYYY-MM-DD which is exactly what Notion wants.
+        const nzDateString = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Pacific/Auckland',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        }).format(new Date());
+
+        // 4. Create Log Entry
         await notion.pages.create({
             parent: { data_source_id: logDatabaseId },
             properties: {
-                '': { type: 'title', title: [{ type: 'text', text: { content: "" } }] },
-                'Date': { type: 'date', date: { start: new Date().toISOString().split('T')[0] } },
-                'Completed by': { type: 'people', people: [{ id: completedById }] },
-                'Chore': { type: 'relation', relation: [{ id: choreId }] },
-            },
+                '': { title: [{ text: { content: "" } }] },
+                Date: { date: { start: nzDateString } },
+                'Completed by': { people: [{ id: completedById }] },
+                Chore: { relation: [{ id: choreId }] },
+            }
         });
 
         // Send a simple success response
         return {
             statusCode: 200,
-            body: JSON.stringify({ success: true }),
+            body: JSON.stringify({ success: true, dateUsed: nzDateString }),
         };
 
     } catch (error) {

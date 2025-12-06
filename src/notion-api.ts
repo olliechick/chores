@@ -18,6 +18,24 @@ async function getAuthHeader(): Promise<Record<string, string>> {
 }
 
 /**
+ * Helper to parse YYYY-MM-DD string as Local Date (not UTC)
+ */
+function parseNotionDate(dateString: string | null | undefined): Date | null {
+    if (!dateString) {
+        return null;
+    }
+
+    // If Notion sends a full timestamp (ISO), use it as is.
+    if (dateString.includes('T')) {
+        return new Date(dateString);
+    }
+
+    // If Notion sends just "2024-12-06", appending "T00:00:00"
+    // forces the browser to interpret it as Local Midnight.
+    return new Date(`${dateString}T00:00:00`);
+}
+
+/**
  * Fetches the list of chores from the backend proxy.
  */
 export const fetchChores = async (): Promise<Chore[]> => {
@@ -38,10 +56,11 @@ export const fetchChores = async (): Promise<Chore[]> => {
 
     const chores: Chore[] = await response.json();
 
-    // Re-hydrate dates strings to Date objects
+    // Re-hydrate dates using the timezone-safe helper
     return chores.map((chore) => ({
         ...chore,
-        lastCompleted: chore.lastCompleted ? new Date(chore.lastCompleted) : null,
+        // The type definition says Date | null, but JSON comes in as string
+        lastCompleted: parseNotionDate(chore.lastCompleted as unknown as string),
     }));
 };
 
