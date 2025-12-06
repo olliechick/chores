@@ -6,8 +6,8 @@ import {
     CalendarRange,
     CheckCircle2,
     Loader2,
-    LogIn,
     LogOut,
+    Mail,
     RotateCcw,
     User,
     Zap
@@ -17,7 +17,8 @@ import type { Chore, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { completeChoreApi, fetchChores } from "./notion-api";
-import netlifyIdentity from 'netlify-identity-widget';
+import { supabase } from "./supabase";
+import type { Session } from '@supabase/supabase-js';
 
 interface AppState {
     chores: Chore[];
@@ -37,37 +38,87 @@ const App = () => {
         error: null,
     });
 
-    // Auth state
-    const [user, setUser] = useState<netlifyIdentity.User | null>(netlifyIdentity.currentUser());
+    const [session, setSession] = useState<Session | null>(null);
+    const [authLoading, setAuthLoading] = useState(false);
+    const [email, setEmail] = useState("");
+    const [isVerifying, setIsVerifying] = useState(false);
 
     // 'Who are you?' state
     const [allUsers, setAllUsers] = useState<AppUser[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
-    // 1. Listen for login/logout events
+    // 1. Auth & Session Management
     useEffect(() => {
-        netlifyIdentity.on('login', (user) => {
-            setUser(user);
-            netlifyIdentity.close();
-        });
-        netlifyIdentity.on('logout', () => {
-            setUser(null);
-            setState({ chores: [], loading: false, error: null }); // Clear state on logout
-        });
-        netlifyIdentity.on('error', (err) => console.error('Netlify Identity Error:', err));
+        // A. Check for Magic Link callback (token_hash)
+        const params = new URLSearchParams(window.location.search);
+        const token_hash = params.get("token_hash");
+        const type = params.get("type");
 
-        // Clean up listeners
-        return () => {
-            netlifyIdentity.off('login');
-            netlifyIdentity.off('logout');
-            netlifyIdentity.off('error');
-        };
+        if (token_hash && (type === null || type === '' || type === 'signup' || type === 'invite' || type === 'magiclink' || type === 'recovery' || type === 'email_change' || type === 'email')) {
+            setIsVerifying(true);
+            supabase.auth.verifyOtp({
+                token_hash,
+                type: type || "email",
+            }).then(({ error }) => {
+                setIsVerifying(false);
+                if (error) {
+                    toast.error("Login link failed or expired.");
+                } else {
+                    toast.success("Successfully logged in!");
+                    // Clean URL
+                    window.history.replaceState({}, document.title, "/");
+                }
+            });
+        }
+
+        // B. Check existing session
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setSession(session);
+        });
+
+        // C. Listen for auth changes
+        const {
+            data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event, session) => {
+            setSession(session);
+            if (!session) {
+                // Clear state on logout
+                setState({ chores: [], loading: false, error: null });
+            }
+        });
+
+        return () => subscription.unsubscribe();
     }, []);
 
-    // 2. Initial Data Fetch (depends on user)
+    // 2. Handle Login (Magic Link)
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setAuthLoading(true);
+        const { error } = await supabase.auth.signInWithOtp({
+            email,
+            options: {
+                emailRedirectTo: window.location.origin,
+            },
+        });
+
+        setAuthLoading(false);
+
+        if (error) {
+            toast.error(error.message);
+        } else {
+            toast.success("Check your email for the login link!");
+            setEmail("");
+        }
+    };
+
+    const handleLogout = async () => {
+        await supabase.auth.signOut();
+    };
+
+
+    // 3. Data Fetch (Triggered when session exists)
     useEffect(() => {
-        // Only load chores IF we are logged in
-        if (user) {
+        if (session) {
             const loadChores = async () => {
                 setState(prev => ({ ...prev, loading: true, error: null }));
                 try {
@@ -88,14 +139,11 @@ const App = () => {
                     const userList: AppUser[] = Array.from(users.entries()).map(([id, name]) => ({ id, name }));
                     setAllUsers(userList);
 
-                    // Try to find the logged-in user in the Notion user list
-                    const netlifyUserFullName = user.user_metadata?.full_name;
-
-                    // Get the first name from the Netlify user
-                    const netlifyUserFirstName = netlifyUserFullName ? netlifyUserFullName.split(' ')[0] : null;
-
-                    const matchingNotionUser = netlifyUserFirstName
-                        ? userList.find(notionUser => notionUser.name === netlifyUserFirstName)
+                    // Try to match Supabase email to Notion user
+                    const supabaseEmail = session.user.email;
+                    // Simple heuristic: Does the Notion name appear in the email?
+                    const matchingNotionUser = supabaseEmail
+                        ? userList.find(u => supabaseEmail.toLowerCase().includes(u.name.toLowerCase()))
                         : null;
                     if (matchingNotionUser) {
                         // If we find a match, set them as the default
@@ -113,9 +161,9 @@ const App = () => {
             };
             loadChores();
         }
-    }, [user]); // Re-run this effect when the user logs in or out
+    }, [session]);
 
-    // 3. Chore Completion Handler
+    // 4. Chore Completion Handler
     const handleCompleteChore = useCallback((choreId: string) => {
         if (!currentUserId) {
             toast.error("Please select a user first.");
@@ -154,7 +202,7 @@ const App = () => {
 
         // 4. Show the toast with an undo button
         toast.success(
-            (t) => ( // 't' is the toast object
+            (t) => (
                 <div className="flex items-center justify-between w-full">
                     <span className="mr-4">Chore completed!</span>
                     <button
@@ -169,15 +217,13 @@ const App = () => {
                     </button>
                 </div>
             ),
-            { duration: UNDO_DURATION } // Toast duration matches the timer
+            { duration: UNDO_DURATION }
         );
-
     }, [state.chores, currentUserId]);
 
 
-    // 4. Filtering and Sorting Logic (Memoized)
+    // 5. Filtering and Sorting Logic
     const { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores } = useMemo(() => {
-
         const allChoresWithStatus: ChoreWithStatus[] = state.chores.map(chore => {
             const nextDue = calculateNextDueDate(chore);
             return {
@@ -253,9 +299,18 @@ const App = () => {
             .sort(futureSorter);
 
         return { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores };
-    }, [state.chores, currentUserId]); // <-- Added currentUserId as a dependency
+    }, [state.chores, currentUserId]);
 
-    // --- RENDER FUNCTION ---
+    // --- RENDER ---
+
+    if (isVerifying) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+                <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
+                <h2 className="text-xl font-semibold text-gray-700">Verifying login link…</h2>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 md:p-8 font-sans w-screen">
@@ -269,8 +324,9 @@ const App = () => {
                     <h1 className="text-3xl font-extrabold tracking-tight flex items-center">
                         <CheckCircle2 className="w-7 h-7 mr-2" /> Chores
                     </h1>
-                    <div className="flex items-center gap-2">
-                        {user && (
+
+                    {session && (
+                        <div className="flex items-center gap-2">
                             <button
                                 onClick={() => window.location.reload()}
                                 className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50"
@@ -278,22 +334,22 @@ const App = () => {
                             >
                                 <RotateCcw className="w-5 h-5" />
                             </button>
-                        )}
-                        <button
-                            onClick={() => user ? netlifyIdentity.logout() : netlifyIdentity.open()}
-                            className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50"
-                            aria-label={user ? "Log out" : "Log in"}
-                        >
-                            {user ? <LogOut className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
-                        </button>
-                    </div>
+                            <button
+                                onClick={handleLogout}
+                                className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50"
+                                aria-label="Log out"
+                            >
+                                <LogOut className="w-5 h-5" />
+                            </button>
+                        </div>
+                    )}
                 </div>
                 <p className="text-gray-500 mt-1">
                     Chore schedule for the household.
                 </p>
 
-                {/* **NEW USER SELECTOR (only show if logged in)** */}
-                {user && allUsers.length > 0 && (
+                {/* Notion User Selector */}
+                {session && allUsers.length > 0 && (
                     <div className="mt-6 max-w-sm mx-auto">
                         <label htmlFor="user-select" className="block text-sm font-medium text-gray-700 mb-1">
                             Complete chores as:
@@ -319,21 +375,45 @@ const App = () => {
                 )}
             </header>
 
-            {/* App content */}
-            {!user && (
-                <div className="text-center py-20">
-                    <p className="text-lg text-gray-600">Please log in to see your chores.</p>
-                    <button
-                        onClick={() => netlifyIdentity.open()}
-                        className="mt-4 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700"
-                    >
-                        <LogIn className="w-5 h-5 mr-2" />
-                        Log In
-                    </button>
+            {/* Login Form (Shown when no session) */}
+            {!session && (
+                <div className="max-w-md mx-auto mt-12 bg-white p-8 rounded-xl shadow-lg border border-gray-100">
+                    <div className="text-center mb-6">
+                        <Mail className="w-12 h-12 text-indigo-600 mx-auto mb-2" />
+                        <h2 className="text-2xl font-bold text-gray-900">Sign in</h2>
+                        <p className="text-gray-500">Enter your email to receive a magic link</p>
+                    </div>
+
+                    <form onSubmit={handleLogin} className="space-y-4">
+                        <div>
+                            <label htmlFor="email" className="sr-only">Email address</label>
+                            <input
+                                id="email"
+                                type="email"
+                                required
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="appearance-none rounded-lg relative block w-full px-3 py-3 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                placeholder="Email address"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={authLoading}
+                            className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                        >
+                            {authLoading ? (
+                                <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                                "Send magic link"
+                            )}
+                        </button>
+                    </form>
                 </div>
             )}
 
-            {user && (
+            {/* Main App Content (Shown when session exists) */}
+            {session && (
                 <>
                     {state.loading && (
                         <div className="text-center py-20 text-indigo-500">
@@ -398,7 +478,7 @@ const App = () => {
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <CalendarDays className="w-6 h-6 mr-2 text-blue-500" />
-                                        Next 7 Days ({nextWeekChores.length})
+                                        Next 7 days ({nextWeekChores.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {nextWeekChores.map(chore => (
@@ -417,7 +497,7 @@ const App = () => {
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <CalendarRange className="w-6 h-6 mr-2 text-purple-500" />
-                                        Next 30 Days ({nextMonthChores.length})
+                                        Next 30 days ({nextMonthChores.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {nextMonthChores.map(chore => (
@@ -436,7 +516,7 @@ const App = () => {
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <Calendar className="w-6 h-6 mr-2 text-gray-400" />
-                                        Far Future ({farFutureChores.length})
+                                        Far future ({farFutureChores.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
                                         {farFutureChores.map(chore => (

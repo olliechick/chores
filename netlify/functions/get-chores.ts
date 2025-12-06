@@ -1,13 +1,17 @@
+import { Handler } from '@netlify/functions';
+import { createClient } from '@supabase/supabase-js';
 import { Client } from '@notionhq/client';
-import type { Handler, HandlerContext } from '@netlify/functions';
-import type { AppUser, Chore } from '../../src/models';
-import type { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
 import { isDefined } from "../../src/utils";
 
-// Initialize the Notion client on the server
-const notion = new Client({
-    auth: process.env.NOTION_API_TOKEN,
-});
+// Initialize Supabase (Service Role for auth verification)
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_SERVICE_ROLE_KEY
+);
+
+// Initialize Notion
+const notion = new Client({ auth: process.env.NOTION_API_TOKEN });
+const databaseId = process.env.CHORE_DB_ID!;
 
 /**
  * Parses a single Notion page object into the app's Chore type.
@@ -74,37 +78,57 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
     }
 };
 
-// --- Netlify Function Handler ---
-export const handler: Handler = async (_, context: HandlerContext) => {
-
-    // If the user isn't logged in, block them.
-    if (!context.clientContext?.user) {
+export const handler: Handler = async (event) => {
+    // 1. CORS Preflight
+    if (event.httpMethod === 'OPTIONS') {
         return {
-            statusCode: 401,
-            body: JSON.stringify({ error: "Unauthorized" }),
+            statusCode: 200,
+            headers: {
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+                'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            },
+            body: '',
         };
     }
 
     try {
-        const response = await notion.dataSources.query({
-            data_source_id: process.env.CHORE_DB_ID,
-        })
+        // 2. Auth Check (Supabase)
+        const authHeader = event.headers.authorization;
+        if (!authHeader) {
+            throw new Error('No authorization header');
+        }
+        const token = authHeader.split(' ')[1];
 
+        const { data: { user }, error } = await supabase.auth.getUser(token);
+        if (error || !user) {
+            return {
+                statusCode: 401,
+                body: JSON.stringify({ error: "Unauthorized" }),
+            };
+        }
+
+        // 3. Query Notion
+        const response = await notion.dataSources.query({
+            data_source_id: databaseId
+        });
+
+        // 4. Map Notion Data to App Interface
         const chores = response.results
             .map(page => 'properties' in page && 'icon' in page && 'is_locked' in page ? parseNotionPage(page) : null)
             .filter(isDefined)
 
-        // Send the chores back to the React app
+
         return {
             statusCode: 200,
-            body: JSON.stringify(chores),
             headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(chores),
         };
     } catch (error) {
         console.error("Failed to fetch from Notion:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({ error: "Failed to fetch chores." }),
+            body: JSON.stringify({ error: "Failed to fetch chores" }),
         };
     }
 };

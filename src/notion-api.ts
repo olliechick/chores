@@ -1,16 +1,19 @@
 import type { Chore } from "./models";
-import netlifyIdentity from 'netlify-identity-widget';
+import { supabase } from "./supabase";
 
 /**
  * Helper to get the auth token for the current logged-in user.
  */
-function getAuthHeader(): Record<string, string> {
-    const user = netlifyIdentity.currentUser();
-    if (!user) {
+async function getAuthHeader(): Promise<Record<string, string>> {
+    const { data } = await supabase.auth.getSession();
+
+    // If no session, throw error (caller handles logout)
+    if (!data.session?.access_token) {
         throw new Error("User not authenticated");
     }
+
     return {
-        Authorization: `Bearer ${user.token?.access_token}`,
+        Authorization: `Bearer ${data.session.access_token}`,
     };
 }
 
@@ -18,26 +21,30 @@ function getAuthHeader(): Record<string, string> {
  * Fetches the list of chores from the backend proxy.
  */
 export const fetchChores = async (): Promise<Chore[]> => {
+    const headers = await getAuthHeader();
+
     const response = await fetch('/.netlify/functions/get-chores', {
-        headers: getAuthHeader(), // Send the auth token
+        headers: headers,
     });
 
     if (!response.ok) {
         if (response.status === 401) {
-            netlifyIdentity.logout();
-        } // Auto-logout on bad token
-        const err = await response.json();
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
         throw new Error(err.error || "Failed to fetch chores from server.");
     }
 
     const chores: Chore[] = await response.json();
 
-    // Re-hydrate dates
+    // Re-hydrate dates strings to Date objects
     return chores.map((chore) => ({
         ...chore,
         lastCompleted: chore.lastCompleted ? new Date(chore.lastCompleted) : null,
     }));
 };
+
 /**
  * Logs a chore by telling the backend proxy to do it.
  */
@@ -45,11 +52,12 @@ export const completeChoreApi = async (
     choreId: string,
     completedById: string,
 ): Promise<void> => {
+    const headers = await getAuthHeader();
 
     const response = await fetch('/.netlify/functions/complete-chore', {
         method: 'POST',
         headers: {
-            ...getAuthHeader(), // Send the auth token
+            ...headers,
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -60,9 +68,10 @@ export const completeChoreApi = async (
 
     if (!response.ok) {
         if (response.status === 401) {
-            netlifyIdentity.logout();
+            await supabase.auth.signOut();
+            window.location.reload();
         }
-        const err = await response.json();
+        const err = await response.json().catch(() => ({}));
         throw new Error(err.error || "Failed to complete chore.");
     }
 };
