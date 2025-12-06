@@ -1,12 +1,18 @@
 import { Handler } from '@netlify/functions';
 import { createClient } from '@supabase/supabase-js';
 import { Client } from '@notionhq/client';
-import { isDefined } from "../../src/utils";
+import { PageObjectResponse } from "@notionhq/client/build/src/api-endpoints";
+import { AppUser, Chore } from "../../src/models";
+
+// Helper for type safety (duplicated from utils to avoid build issues in serverless context if not shared properly)
+const isDefined = <T>(value: T | null | undefined): value is T => {
+    return value !== null && value !== undefined
+};
 
 // Initialize Supabase (Service Role for auth verification)
 const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_SERVICE_ROLE_KEY
+    process.env.SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 // Initialize Notion
@@ -28,6 +34,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         const daysProp = props['Days'];
         const lastCompletedProp = props['Last completed at'];
         const roomProp = props['Room'];
+        const importantProp = props['Important'];
 
         // --- Validation ---
         if (nameProp?.type !== 'title' || nameProp.title.length === 0) {
@@ -53,6 +60,9 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         const lastCompletedDate = lastCompletedProp.rollup.type === 'date' ? lastCompletedProp.rollup.date?.start : null;
         const room = (roomProp?.type === 'select' && roomProp.select) ? roomProp.select.name : null;
 
+        // Parse 'Important' checkbox (default to false if missing or wrong type)
+        const important = importantProp?.type === 'checkbox' ? importantProp.checkbox : false;
+
         const assignees: AppUser[] = assigneeProp.people.map(person => {
             let personName = ('name' in person ? person.name : person.id) || 'Unassigned';
 
@@ -70,10 +80,11 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             schedule,
             lastCompleted: lastCompletedDate ? new Date(lastCompletedDate) : null,
             room,
+            important,
         };
 
     } catch (error) {
-        console.error("Failed to parse Notion page:", page, error);
+        console.error("Failed to parse Notion page:", page.id, error);
         return null;
     }
 };

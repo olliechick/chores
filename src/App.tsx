@@ -5,6 +5,7 @@ import {
     CalendarDays,
     CalendarRange,
     CheckCircle2,
+    ClipboardList,
     Loader2,
     LogOut,
     Mail,
@@ -223,7 +224,14 @@ const App = () => {
 
 
     // 5. Filtering and Sorting Logic
-    const { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores } = useMemo(() => {
+    const {
+        importantDueChores,
+        standardDueChores,
+        completedTodayChores,
+        nextWeekChores,
+        nextMonthChores,
+        farFutureChores
+    } = useMemo(() => {
         const allChoresWithStatus: ChoreWithStatus[] = state.chores.map(chore => {
             const nextDue = calculateNextDueDate(chore);
             return {
@@ -278,9 +286,13 @@ const App = () => {
         };
 
         // --- Separate based on status ---
-        const dueChores = allChoresWithStatus
+
+        const allDue = allChoresWithStatus
             .filter(c => (c.status === 'Due' || c.status === 'Overdue'))
             .sort(dueSorter);
+
+        const importantDueChores = allDue.filter(c => c.important);
+        const standardDueChores = allDue.filter(c => !c.important);
 
         const completedTodayChores = allChoresWithStatus
             .filter(c => c.status === 'Done' && c.lastCompleted && isToday(c.lastCompleted))
@@ -298,7 +310,14 @@ const App = () => {
             .filter(c => c.status === 'FarFuture')
             .sort(futureSorter);
 
-        return { dueChores, completedTodayChores, nextWeekChores, nextMonthChores, farFutureChores };
+        return {
+            importantDueChores,
+            standardDueChores,
+            completedTodayChores,
+            nextWeekChores,
+            nextMonthChores,
+            farFutureChores
+        };
     }, [state.chores, currentUserId]);
 
     // --- RENDER ---
@@ -432,19 +451,16 @@ const App = () => {
 
                     {!state.loading && !state.error && (
                         <main className="space-y-8">
-                            {/* Section 1: Due */}
-                            <div>
-                                <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
-                                    <Zap className="w-6 h-6 mr-2 text-red-500" /> Action required ({dueChores.length})
-                                </h2>
-                                {dueChores.length === 0 ? (
-                                    <div
-                                        className="bg-white p-4 rounded-xl text-center text-gray-500 border border-indigo-200 shadow">
-                                        <p>🎉 All chores are up-to-date! Great job!</p>
-                                    </div>
-                                ) : (
+
+                            {/* Section 1: IMPORTANT Action Required */}
+                            {importantDueChores.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center">
+                                        <Zap className="w-6 h-6 mr-2 text-red-500 fill-red-500" />
+                                        Action required ({importantDueChores.length})
+                                    </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {dueChores.map(chore => (
+                                        {importantDueChores.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
@@ -452,10 +468,39 @@ const App = () => {
                                             />
                                         ))}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Section 2: Standard Due (Non-urgent) */}
+                            <div>
+                                <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
+                                    <ClipboardList className="w-6 h-6 mr-2 text-amber-500" />
+                                    Tasks due ({standardDueChores.length})
+                                </h2>
+
+                                {standardDueChores.length === 0 && importantDueChores.length === 0 ? (
+                                    <div
+                                        className="bg-white p-4 rounded-xl text-center text-gray-500 border border-indigo-200 shadow">
+                                        <p>🎉 All chores are up-to-date! Great job!</p>
+                                    </div>
+                                ) : (
+                                    standardDueChores.length > 0 ? (
+                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                            {standardDueChores.map(chore => (
+                                                <ChoreCard
+                                                    key={chore.id}
+                                                    chore={chore}
+                                                    onComplete={handleCompleteChore}
+                                                />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-400 italic mb-4">No other tasks due.</div>
+                                    )
                                 )}
                             </div>
 
-                            {/* Section 2: Completed */}
+                            {/* Section 3: Completed */}
                             {completedTodayChores.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
@@ -473,7 +518,7 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 3: Next Week */}
+                            {/* Section 4: Next Week */}
                             {nextWeekChores.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
@@ -492,7 +537,7 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 4: Next Month */}
+                            {/* Section 5: Next Month */}
                             {nextMonthChores.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
@@ -511,7 +556,7 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 5: Far Future */}
+                            {/* Section 6: Far Future */}
                             {farFutureChores.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">

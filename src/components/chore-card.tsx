@@ -1,6 +1,6 @@
 import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
 import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
-import { Calendar, CheckCircle2, MapPin, User, Zap } from "lucide-react";
+import { CheckCircle2, ClipboardList, MapPin, Star, User, Zap } from "lucide-react";
 import type { Chore } from "../models.ts";
 import { StatusBadge } from "./status-badge.tsx";
 
@@ -27,6 +27,39 @@ export const ChoreCard = ({
 
     const assigneeNames = chore.assignees.map(a => a.name).join(', ');
 
+    // Helper to determine which icon to show
+    const getIcon = () => {
+        const baseClass = "w-5 h-5 mr-2 shrink-0";
+
+        // 1. Completed
+        if (status === 'Done') {
+            return <CheckCircle2 className={`${baseClass} text-green-600`} />;
+        }
+
+        // 2. Important Items
+        if (chore.important) {
+            // If it's specifically Due (today), show Red Zap
+            if (status === 'Due' || status === 'Overdue') {
+                return <Zap className={`${baseClass} text-red-500`} />;
+            }
+            // Otherwise (Future, etc), show Amber Star
+            return <Star className={`${baseClass} text-amber-500 fill-amber-500`} />;
+        }
+
+        // 3. Standard Items
+        if (status === 'Due') {
+            return <ClipboardList className={`${baseClass} text-amber-500`} />;
+        }
+
+        // 4. Fallback for Overdue (Standard)
+        // Ensures non-important overdue items still look urgent
+        if (status === 'Overdue') {
+            return <ClipboardList className={`${baseClass} text-amber-500`} />;
+        }
+
+        return null;
+    };
+
     return (
         <div className={`flex flex-col rounded-xl p-4 shadow-xl transition-all duration-300 ease-in-out 
                  ${isActionable ? 'bg-white hover:shadow-2xl border-l-4 ' + borderColor : (status === 'Done' ? 'bg-green-50 border-l-4 border-green-300' : 'bg-gray-100 border-l-4 border-gray-300')} 
@@ -34,11 +67,10 @@ export const ChoreCard = ({
 
             {/* Chore Name */}
             <div className="flex flex-col items-start gap-0.5">
-                <h3 className="text-lg font-bold truncate text-gray-800 flex items-center text-left">
-                    {status === 'Overdue' && <Zap className="w-5 h-5 text-red-500 mr-2" />}
-                    {status === 'Done' && <CheckCircle2 className="w-5 h-5 text-green-600 mr-2" />}
-                    {status === 'Due' && <Calendar className="w-5 h-5 text-amber-500 mr-2" />}
-                    <span className={status === 'Done' ? 'line-through text-gray-500' : ''}>
+                <h3 className="text-lg font-bold truncate text-gray-800 flex items-center text-left w-full">
+                    {getIcon()}
+
+                    <span className={`truncate ${status === 'Done' ? 'line-through text-gray-500' : ''}`}>
                         {chore.name}
                     </span>
                 </h3>
