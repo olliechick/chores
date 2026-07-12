@@ -165,7 +165,7 @@ const App = () => {
     }, [session]);
 
     // 4. Chore Completion Handler
-    const handleCompleteChore = useCallback((choreId: string) => {
+    const handleCompleteChore = useCallback(async (choreId: string) => {
         if (!currentUserId) {
             toast.error("Please select a user first.");
             return;
@@ -176,50 +176,14 @@ const App = () => {
             return;
         }
 
-        // 1. Store original state for the undo action
-        const originalChores = state.chores;
-
-        // 2. Create and set the optimistic state (mark as done *now*)
-        const optimisticChores = originalChores.map(c =>
-            c.id === choreId
-                ? { ...c, lastCompleted: new Date() }
-                : c
-        );
-        setState(prev => ({ ...prev, chores: optimisticChores }));
-
-        // 3. Schedule the actual API call
-        const UNDO_DURATION = 4000; // 4 seconds
-        const timerId = setTimeout(() => {
-            // Time's up, user didn't undo. Call the API.
-            completeChoreApi(choreId, currentUserId)
-                .catch((e) => {
-                    // API call FAILED! Revert state and show error.
-                    console.error("API call failed:", e);
-                    const errorMessage = e instanceof Error ? e.message : "Failed to save chore.";
-                    toast.error(`Failed to save '${choreToComplete.name}'. ${errorMessage}`);
-                    setState(prev => ({ ...prev, chores: originalChores }));
-                });
-        }, UNDO_DURATION);
-
-        // 4. Show the toast with an undo button
-        toast.success(
-            (t) => (
-                <div className="flex items-center justify-between w-full">
-                    <span className="mr-4">Chore completed!</span>
-                    <button
-                        className="px-3 py-1 text-sm font-semibold text-indigo-600 bg-white rounded-md shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                        onClick={() => {
-                            clearTimeout(timerId); // Cancel the pending API call
-                            setState(prev => ({ ...prev, chores: originalChores })); // Revert state
-                            toast.dismiss(t.id); // Close this toast
-                        }}
-                    >
-                        Undo
-                    </button>
-                </div>
-            ),
-            { duration: UNDO_DURATION }
-        );
+        try {
+            await completeChoreApi(choreId, currentUserId);
+            toast.success("Chore completed!");
+        } catch (e) {
+            console.error("API call failed:", e);
+            const errorMessage = e instanceof Error ? e.message : "Failed to save chore.";
+            toast.error(`Failed to save '${choreToComplete.name}'. ${errorMessage}`);
+        }
     }, [state.chores, currentUserId]);
 
 
