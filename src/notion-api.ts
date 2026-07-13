@@ -1,4 +1,5 @@
 import type { Chore } from "./models";
+import type { LogEntry } from "./log-cache";
 import { supabase } from "./supabase";
 
 /**
@@ -93,4 +94,42 @@ export const completeChoreApi = async (
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || "Failed to complete chore.");
     }
+};
+
+export type LogPageResponse = {
+    entries: LogEntry[];
+    has_more: boolean;
+    next_cursor: string | null;
+};
+
+/**
+ * Fetches a page of chore log entries from the backend.
+ * If `since` is provided, only entries created after that timestamp are returned.
+ * If `cursor` is provided, pagination continues from that point.
+ */
+export const fetchLogPage = async (
+    since?: string,
+    cursor?: string,
+): Promise<LogPageResponse> => {
+    const headers = await getAuthHeader();
+
+    const params = new URLSearchParams();
+    if (since) params.set('since', since);
+    if (cursor) params.set('cursor', cursor);
+    const qs = params.toString();
+
+    const response = await fetch(`/.netlify/functions/get-log${qs ? `?${qs}` : ''}`, {
+        headers: headers,
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to fetch chore log.");
+    }
+
+    return response.json();
 };

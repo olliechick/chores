@@ -129,7 +129,6 @@ export const handler: Handler = async (event) => {
             .map(page => 'properties' in page && 'icon' in page && 'is_locked' in page ? parseNotionPage(page) : null)
             .filter(isDefined)
 
-
         return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },

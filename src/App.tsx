@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { isToday } from 'date-fns';
 import {
     Calendar,
@@ -17,8 +17,9 @@ import toast, { Toaster } from 'react-hot-toast';
 import type { Chore, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
-import { completeChoreApi, fetchChores } from "./notion-api";
+import { completeChoreApi, fetchChores, fetchLogPage } from "./notion-api";
 import { supabase } from "./supabase";
+import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
 import type { Session } from '@supabase/supabase-js';
 
 interface AppState {
@@ -47,6 +48,12 @@ const App = () => {
     // 'Who are you?' state
     const [allUsers, setAllUsers] = useState<AppUser[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+    // Track whether chores have been fetched to avoid re-fetching on session reference changes
+    const choresLoadedRef = useRef(false);
+
+    // Whether log sync is in progress (controls main loading spinner)
+    const [logSyncing, setLogSyncing] = useState(false);
 
     // 1. Auth & Session Management
     useEffect(() => {
@@ -84,6 +91,8 @@ const App = () => {
             setSession(session);
             if (!session) {
                 // Clear state on logout
+                clearLogCache();
+                choresLoadedRef.current = false;
                 setState({ chores: [], loading: false, error: null });
             }
         });
@@ -113,13 +122,15 @@ const App = () => {
     };
 
     const handleLogout = async () => {
+        clearLogCache();
         await supabase.auth.signOut();
     };
 
 
-    // 3. Data Fetch (Triggered when session exists)
+    // 3. Data Fetch (Triggered when session exists, but only once)
     useEffect(() => {
-        if (session) {
+        if (session && !choresLoadedRef.current) {
+            choresLoadedRef.current = true;
             const loadChores = async () => {
                 setState(prev => ({ ...prev, loading: true, error: null }));
                 try {
@@ -164,6 +175,60 @@ const App = () => {
         }
     }, [session]);
 
+    // 3b. Background log sync (runs after chores load — always full rebuild)
+    useEffect(() => {
+        if (!session || state.chores.length === 0) return;
+
+        let cancelled = false;
+
+        const syncLog = async () => {
+            setLogSyncing(true);
+
+            try {
+                let allEntries: { choreId: string; date: string }[] = [];
+                let hasMore = true;
+                let cursor: string | undefined;
+
+                while (hasMore) {
+                    if (cancelled) return;
+                    const page = await fetchLogPage(undefined, cursor);
+
+                    allEntries = allEntries.concat(page.entries);
+
+                    hasMore = page.has_more;
+                    cursor = page.next_cursor ?? undefined;
+                }
+
+                setLogCache({
+                    entries: allEntries,
+                    lastSyncedAt: new Date().toISOString(),
+                });
+
+                if (cancelled) return;
+
+                // Override lastCompleted: take most recent of (rollup, log)
+                const logMap = buildLastCompletedMap(allEntries);
+                setState(prev => {
+                    const overridden = prev.chores.map(c => {
+                        const logDate = logMap.get(c.id);
+                        if (logDate && (!c.lastCompleted || logDate > c.lastCompleted)) {
+                            return { ...c, lastCompleted: logDate };
+                        }
+                        return c;
+                    });
+                    return { ...prev, chores: overridden };
+                });
+            } catch (e) {
+                console.warn("Log sync failed, using rollup fallback:", e);
+            } finally {
+                if (!cancelled) setLogSyncing(false);
+            }
+        };
+
+        syncLog();
+        return () => { cancelled = true; };
+    }, [session, state.chores.length > 0]);
+
     // 4. Chore Completion Handler
     const handleCompleteChore = useCallback(async (choreId: string) => {
         if (!currentUserId) {
@@ -178,6 +243,24 @@ const App = () => {
 
         try {
             await completeChoreApi(choreId, currentUserId);
+            const today = new Date();
+            const todayStr = today.toISOString().split('T')[0];
+
+            setState(prev => ({
+                ...prev,
+                chores: prev.chores.map(c =>
+                    c.id === choreId ? { ...c, lastCompleted: today } : c
+                ),
+            }));
+
+            // Update log cache
+            const cache = getLogCache();
+            if (cache) {
+                cache.entries.push({ choreId, date: todayStr });
+                cache.lastSyncedAt = new Date().toISOString();
+                setLogCache(cache);
+            }
+
             toast.success("Chore completed!");
         } catch (e) {
             console.error("API call failed:", e);
@@ -398,7 +481,7 @@ const App = () => {
             {/* Main App Content (Shown when session exists) */}
             {session && (
                 <>
-                    {state.loading && (
+                    {(state.loading || logSyncing) && (
                         <div className="text-center py-20 text-indigo-500">
                             <Loader2 className="w-8 h-8 mx-auto mb-2 animate-spin" />
                             <p className="text-lg">Loading chores...</p>
@@ -413,7 +496,7 @@ const App = () => {
                         </div>
                     )}
 
-                    {!state.loading && !state.error && (
+                    {!state.loading && !logSyncing && !state.error && (
                         <main className="space-y-8">
 
                             {/* Section 1: IMPORTANT Action Required */}
