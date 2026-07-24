@@ -1,4 +1,4 @@
-import type { Chore } from "./models";
+import type { Chore, ChoreLogEntry } from "./models";
 import type { LogEntry } from "./log-cache";
 import { supabase } from "./supabase";
 
@@ -94,6 +94,33 @@ export const completeChoreApi = async (
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || "Failed to complete chore.");
     }
+};
+
+/**
+ * Fetches the completion history for a specific chore.
+ */
+export const fetchChoreHistory = async (choreId: string): Promise<ChoreLogEntry[]> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch(`/.netlify/functions/get-chore-history?choreId=${encodeURIComponent(choreId)}`, {
+        headers: headers,
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to fetch chore history.");
+    }
+
+    const entries: { date: string; completedBy: string }[] = await response.json();
+
+    return entries.map(entry => ({
+        date: parseNotionDate(entry.date)!,
+        completedBy: entry.completedBy,
+    }));
 };
 
 export type LogPageResponse = {

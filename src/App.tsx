@@ -1,23 +1,25 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isToday } from 'date-fns';
+import { format, isToday } from 'date-fns';
 import {
     Calendar,
     CalendarDays,
     CalendarRange,
     CheckCircle2,
     ClipboardList,
+    Clock,
     Loader2,
     LogOut,
     Mail,
     RotateCcw,
     User,
+    X,
     Zap
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import type { Chore, ChoreWithStatus } from "./models";
+import type { Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
-import { completeChoreApi, fetchChores, fetchLogPage } from "./notion-api";
+import { completeChoreApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
 import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
 import type { Session } from '@supabase/supabase-js';
@@ -54,6 +56,11 @@ const App = () => {
 
     // Whether log sync is in progress (controls main loading spinner)
     const [logSyncing, setLogSyncing] = useState(false);
+
+    // History modal state
+    const [selectedChoreId, setSelectedChoreId] = useState<string | null>(null);
+    const [historyEntries, setHistoryEntries] = useState<ChoreLogEntry[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
 
     // 1. Auth & Session Management
     useEffect(() => {
@@ -228,6 +235,34 @@ const App = () => {
         syncLog();
         return () => { cancelled = true; };
     }, [session, state.chores.length > 0]);
+
+    // 3c. Fetch chore history when a chore is selected
+    useEffect(() => {
+        if (!selectedChoreId) {
+            setHistoryEntries([]);
+            return;
+        }
+
+        let cancelled = false;
+        setHistoryLoading(true);
+
+        fetchChoreHistory(selectedChoreId)
+            .then(entries => {
+                if (!cancelled) {
+                    setHistoryEntries(entries);
+                    setHistoryLoading(false);
+                }
+            })
+            .catch(e => {
+                console.error("Failed to fetch chore history:", e);
+                if (!cancelled) {
+                    setHistoryLoading(false);
+                    toast.error("Failed to load history.");
+                }
+            });
+
+        return () => { cancelled = true; };
+    }, [selectedChoreId]);
 
     // 4. Chore Completion Handler
     const handleCompleteChore = useCallback(async (choreId: string) => {
@@ -512,6 +547,7 @@ const App = () => {
                                                 key={chore.id}
                                                 chore={chore}
                                                 onComplete={handleCompleteChore}
+                                                onSelect={setSelectedChoreId}
                                             />
                                         ))}
                                     </div>
@@ -538,6 +574,7 @@ const App = () => {
                                                     key={chore.id}
                                                     chore={chore}
                                                     onComplete={handleCompleteChore}
+                                                    onSelect={setSelectedChoreId}
                                                 />
                                             ))}
                                         </div>
@@ -559,6 +596,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
+                                                onSelect={setSelectedChoreId}
                                             />
                                         ))}
                                     </div>
@@ -578,6 +616,7 @@ const App = () => {
                                                 key={chore.id}
                                                 chore={chore}
                                                 onComplete={handleCompleteChore}
+                                                onSelect={setSelectedChoreId}
                                             />
                                         ))}
                                     </div>
@@ -597,6 +636,7 @@ const App = () => {
                                                 key={chore.id}
                                                 chore={chore}
                                                 onComplete={handleCompleteChore}
+                                                onSelect={setSelectedChoreId}
                                             />
                                         ))}
                                     </div>
@@ -616,6 +656,7 @@ const App = () => {
                                                 key={chore.id}
                                                 chore={chore}
                                                 onComplete={handleCompleteChore}
+                                                onSelect={setSelectedChoreId}
                                             />
                                         ))}
                                     </div>
@@ -630,6 +671,58 @@ const App = () => {
             <footer className="mt-12 text-center text-sm text-gray-400">
                 <p>Made with ❤️ by Ollie</p>
             </footer>
+
+            {/* History Modal */}
+            {selectedChoreId && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                    onClick={() => setSelectedChoreId(null)}
+                >
+                    <div
+                        className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="flex items-center justify-between p-4 border-b border-gray-100">
+                            <h3 className="text-lg font-bold text-gray-800 truncate pr-2">
+                                {state.chores.find(c => c.id === selectedChoreId)?.name ?? 'Chore History'}
+                            </h3>
+                            <button
+                                onClick={() => setSelectedChoreId(null)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100 shrink-0"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="p-4 overflow-y-auto flex-1">
+                            {historyLoading ? (
+                                <div className="flex items-center justify-center py-8 text-indigo-500">
+                                    <Loader2 className="w-6 h-6 animate-spin mr-2" />
+                                    Loading history...
+                                </div>
+                            ) : historyEntries.length === 0 ? (
+                                <div className="text-center py-8 text-gray-400">
+                                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                    <p>No completion history yet.</p>
+                                </div>
+                            ) : (
+                                <ul className="space-y-3">
+                                    {historyEntries.map((entry, i) => (
+                                        <li key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                            <div className="flex items-center gap-2">
+                                                <User className="w-4 h-4 text-indigo-400" />
+                                                <span className="text-sm font-medium text-gray-700">{entry.completedBy}</span>
+                                            </div>
+                                            <span className="text-sm text-gray-500">
+                                                {format(entry.date, 'd MMM yyyy')}
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

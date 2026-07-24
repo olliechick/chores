@@ -21,6 +21,11 @@ export type ChoreWithStatus = Chore & {
     nextDue: Date;
 };
 
+export interface ChoreLogEntry {
+    date: Date;
+    completedBy: string;
+}
+
 export interface AppSettings {
     token: string;
     choreDbId: string;

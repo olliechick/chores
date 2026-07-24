@@ -4,11 +4,12 @@ import { CheckCircle2, ClipboardList, MapPin, Star, User, Zap } from "lucide-rea
 import type { Chore } from "../models.ts";
 import { StatusBadge } from "./status-badge.tsx";
 
-type ChoreCardProps = { chore: Chore, onComplete?: (id: string) => void }
+type ChoreCardProps = { chore: Chore, onComplete?: (id: string) => void, onSelect?: (id: string) => void }
 
 export const ChoreCard = ({
                               chore,
-                              onComplete
+                              onComplete,
+                              onSelect
                           }: ChoreCardProps) => {
     const nextDueDate = calculateNextDueDate(chore);
     const status = getChoreStatus(chore, nextDueDate);
@@ -61,7 +62,7 @@ export const ChoreCard = ({
     };
 
     return (
-        <div className={`flex flex-col rounded-xl p-4 shadow-xl transition-all duration-300 ease-in-out 
+        <div onClick={() => onSelect?.(chore.id)} className={`flex flex-col rounded-xl p-4 shadow-xl transition-all duration-300 ease-in-out cursor-pointer
                  ${isActionable ? 'bg-white hover:shadow-2xl border-l-4 ' + borderColor : (status === 'Done' ? 'bg-green-50 border-l-4 border-green-300' : 'bg-gray-100 border-l-4 border-gray-300')} 
                  transform hover:-translate-y-0.5`}>
 
@@ -101,7 +102,7 @@ export const ChoreCard = ({
 
                 {isActionable && (
                     <button
-                        onClick={() => onComplete?.(chore.id)}
+                        onClick={(e) => { e.stopPropagation(); onComplete?.(chore.id); }}
                         className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors duration-200
                          bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer`}
                     >
