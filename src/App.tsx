@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { format, isToday } from 'date-fns';
+import { format, formatDistanceToNowStrict, isToday } from 'date-fns';
 import {
     Calendar,
     CalendarDays,
@@ -705,19 +705,41 @@ const App = () => {
                                     <p>No completion history yet.</p>
                                 </div>
                             ) : (
-                                <ul className="space-y-3">
-                                    {historyEntries.map((entry, i) => (
-                                        <li key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <div className="space-y-4">
+                                    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+                                        <p className="text-sm text-indigo-600 font-medium mb-1 text-center">Last completed</p>
+                                        <p className="text-2xl font-bold text-indigo-700 text-center">
+                                            {formatDistanceToNowStrict(historyEntries[0].date, { addSuffix: true })}
+                                        </p>
+                                        <div className="mt-3 flex items-center justify-between p-3 bg-white rounded-lg border border-indigo-100">
                                             <div className="flex items-center gap-2">
                                                 <User className="w-4 h-4 text-indigo-400" />
-                                                <span className="text-sm font-medium text-gray-700">{entry.completedBy}</span>
+                                                <span className="text-sm font-medium text-gray-700">{historyEntries[0].completedBy}</span>
                                             </div>
                                             <span className="text-sm text-gray-500">
-                                                {format(entry.date, 'd MMM yyyy')}
+                                                {format(historyEntries[0].date, 'd MMM yyyy')}
                                             </span>
-                                        </li>
-                                    ))}
-                                </ul>
+                                        </div>
+                                    </div>
+                                    {historyEntries.length > 1 && (
+                                        <>
+                                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">History</p>
+                                            <ul className="space-y-2">
+                                                {historyEntries.slice(1).map((entry, i) => (
+                                                    <li key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                        <div className="flex items-center gap-2">
+                                                            <User className="w-4 h-4 text-indigo-400" />
+                                                            <span className="text-sm font-medium text-gray-700">{entry.completedBy}</span>
+                                                        </div>
+                                                        <span className="text-sm text-gray-500">
+                                                            {format(entry.date, 'd MMM yyyy')}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </>
+                                    )}
+                                </div>
                             )}
                         </div>
                     </div>
