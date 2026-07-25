@@ -408,7 +408,10 @@ const App = () => {
 
     // Apply search filter to all categories
     const q = searchQuery.toLowerCase().trim();
-    const matchesSearch = q === '' ? () => true : (c: { name: string }) => c.name.toLowerCase().includes(q);
+    const matchesSearch = q === '' ? () => true : (c: Chore) =>
+        c.name.toLowerCase().includes(q) ||
+        c.room?.toLowerCase().includes(q) ||
+        c.assignees.some(a => a.name.toLowerCase().includes(q));
 
     const filteredImportantDue = importantDueChores.filter(matchesSearch);
     const filteredStandardDue = standardDueChores.filter(matchesSearch);
