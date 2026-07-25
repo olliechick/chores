@@ -67,6 +67,13 @@ const App = () => {
     // Search state
     const [searchQuery, setSearchQuery] = useState("");
 
+    // Mark done confirmation modal
+    const [confirmingChoreId, setConfirmingChoreId] = useState<string | null>(null);
+    const [confirmDate, setConfirmDate] = useState(() => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    });
+
     // 1. Auth & Session Management
     useEffect(() => {
         // A. Check for Magic Link callback (token_hash)
@@ -270,7 +277,7 @@ const App = () => {
     }, [selectedChoreId]);
 
     // 4. Chore Completion Handler
-    const handleCompleteChore = useCallback(async (choreId: string) => {
+    const handleCompleteChore = useCallback(async (choreId: string, date?: string) => {
         if (!currentUserId) {
             toast.error("Please select a user first.");
             return;
@@ -282,21 +289,21 @@ const App = () => {
         }
 
         try {
-            await completeChoreApi(choreId, currentUserId);
-            const today = new Date();
-            const todayStr = today.toISOString().split('T')[0];
+            await completeChoreApi(choreId, currentUserId, date);
+            const completedDate = date ? new Date(`${date}T00:00:00`) : new Date();
+            const dateStr = date || completedDate.toISOString().split('T')[0];
 
             setState(prev => ({
                 ...prev,
                 chores: prev.chores.map(c =>
-                    c.id === choreId ? { ...c, lastCompleted: today } : c
+                    c.id === choreId ? { ...c, lastCompleted: completedDate } : c
                 ),
             }));
 
             // Update log cache
             const cache = getLogCache();
             if (cache) {
-                cache.entries.push({ choreId, date: todayStr });
+                cache.entries.push({ choreId, date: dateStr });
                 cache.lastSyncedAt = new Date().toISOString();
                 setLogCache(cache);
             }
@@ -612,7 +619,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
-                                                onComplete={handleCompleteChore}
+                                                onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
                                         ))}
@@ -631,7 +638,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
-                                                onComplete={handleCompleteChore}
+                                                onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
                                         ))}
@@ -668,7 +675,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
-                                                onComplete={handleCompleteChore}
+                                                onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
                                         ))}
@@ -687,7 +694,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
-                                                onComplete={handleCompleteChore}
+                                                onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
                                         ))}
@@ -706,7 +713,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
-                                                onComplete={handleCompleteChore}
+                                                onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
                                         ))}
@@ -816,6 +823,55 @@ const App = () => {
                     </div>
                 </div>
             )}
+
+            {/* Mark Done Confirmation Modal */}
+            {confirmingChoreId && (() => {
+                const chore = state.chores.find(c => c.id === confirmingChoreId);
+                if (!chore) return null;
+                return (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                        onClick={() => setConfirmingChoreId(null)}
+                    >
+                        <div
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h3 className="text-lg font-bold text-gray-800 mb-1">Mark as done</h3>
+                            <p className="text-gray-500 text-sm mb-4">{chore.name}</p>
+
+                            <label htmlFor="confirm-date" className="block text-sm font-medium text-gray-700 mb-1">
+                                Date completed
+                            </label>
+                            <input
+                                id="confirm-date"
+                                type="date"
+                                value={confirmDate}
+                                onChange={(e) => setConfirmDate(e.target.value)}
+                                className="block w-full px-3 py-2 text-base border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm mb-5"
+                            />
+
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setConfirmingChoreId(null)}
+                                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        handleCompleteChore(confirmingChoreId, confirmDate);
+                                        setConfirmingChoreId(null);
+                                    }}
+                                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-md"
+                                >
+                                    Confirm
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
         </div>
     );
 };

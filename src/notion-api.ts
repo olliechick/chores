@@ -71,6 +71,7 @@ export const fetchChores = async (): Promise<Chore[]> => {
 export const completeChoreApi = async (
     choreId: string,
     completedById: string,
+    date?: string,
 ): Promise<void> => {
     const headers = await getAuthHeader();
 
@@ -83,6 +84,7 @@ export const completeChoreApi = async (
         body: JSON.stringify({
             choreId: choreId,
             completedById: completedById,
+            date: date,
         }),
     });
 

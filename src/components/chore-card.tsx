@@ -4,11 +4,11 @@ import { CheckCircle2, ClipboardList, MapPin, Star, User, Zap } from "lucide-rea
 import type { Chore } from "../models.ts";
 import { StatusBadge } from "./status-badge.tsx";
 
-type ChoreCardProps = { chore: Chore, onComplete?: (id: string) => void, onSelect?: (id: string) => void }
+type ChoreCardProps = { chore: Chore, onRequestComplete?: (id: string) => void, onSelect?: (id: string) => void }
 
 export const ChoreCard = ({
                               chore,
-                              onComplete,
+                              onRequestComplete,
                               onSelect
                           }: ChoreCardProps) => {
     const nextDueDate = calculateNextDueDate(chore);
@@ -102,7 +102,7 @@ export const ChoreCard = ({
 
                 {isActionable && (
                     <button
-                        onClick={(e) => { e.stopPropagation(); onComplete?.(chore.id); }}
+                        onClick={(e) => { e.stopPropagation(); onRequestComplete?.(chore.id); }}
                         className={`flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors duration-200
                          bg-indigo-600 text-white hover:bg-indigo-700 shadow-md hover:shadow-lg cursor-pointer`}
                     >

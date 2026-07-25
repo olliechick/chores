@@ -39,16 +39,14 @@ export const handler: Handler = async (event) => {
         if (!event.body) {
             throw new Error("Missing body");
         }
-        const { choreId, completedById } = JSON.parse(event.body);
+        const { choreId, completedById, date: clientDate } = JSON.parse(event.body);
 
         if (!choreId || !completedById) {
             return { statusCode: 400, body: JSON.stringify({ error: "Missing choreId or completedById" }) };
         }
 
-        // 3. Get Current Date in NZ Time
-        // Netlify servers run in UTC. We must force 'Pacific/Auckland'.
-        // 'en-CA' locale formats as YYYY-MM-DD which is exactly what Notion wants.
-        const nzDateString = new Intl.DateTimeFormat('en-CA', {
+        // 3. Use client-provided date or fall back to NZ timezone date
+        const nzDateString = clientDate || new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Pacific/Auckland',
             year: 'numeric',
             month: '2-digit',
