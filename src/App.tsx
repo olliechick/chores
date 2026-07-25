@@ -460,9 +460,7 @@ const App = () => {
                         </div>
                     )}
                 </div>
-                <p className="text-gray-500 mt-1">
-                    Chore schedule for the household.
-                </p>
+            </header>
 
                 {/* Search + User Selector */}
                 {session && (
