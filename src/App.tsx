@@ -460,12 +460,28 @@ const App = () => {
                         </div>
                     )}
                 </div>
-            </header>
 
                 {/* Search + User Selector */}
                 {session && (
-                    <div className="mt-4 flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
-                        <div className="relative flex-1">
+                    <div className="mt-4 flex flex-col gap-3 max-w-sm mx-auto">
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <User className="w-5 h-5 text-gray-400" />
+                            </div>
+                            <select
+                                id="user-select"
+                                value={currentUserId || ''}
+                                onChange={(e) => setCurrentUserId(e.target.value)}
+                                className="block w-full pl-10 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm"
+                            >
+                                {allUsers.map(user => (
+                                    <option key={user.id} value={user.id}>
+                                        {user.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Search className="w-5 h-5 text-gray-400" />
                             </div>
@@ -485,25 +501,6 @@ const App = () => {
                                 </button>
                             )}
                         </div>
-                        {allUsers.length > 0 && (
-                            <div className="relative sm:w-48">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <User className="w-5 h-5 text-gray-400" />
-                                </div>
-                                <select
-                                    id="user-select"
-                                    value={currentUserId || ''}
-                                    onChange={(e) => setCurrentUserId(e.target.value)}
-                                    className="block w-full pl-10 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm"
-                                >
-                                    {allUsers.map(user => (
-                                        <option key={user.id} value={user.id}>
-                                            {user.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
-                        )}
                     </div>
                 )}
             </header>
@@ -566,7 +563,28 @@ const App = () => {
                     {!state.loading && !logSyncing && !state.error && (
                         <main className="space-y-8">
 
-                            {/* Section 1: IMPORTANT Action Required */}
+                            {filteredImportantDue.length === 0 &&
+                             filteredStandardDue.length === 0 &&
+                             filteredCompletedToday.length === 0 &&
+                             filteredNextWeek.length === 0 &&
+                             filteredNextMonth.length === 0 &&
+                             filteredFarFuture.length === 0 && (
+                                <div className="text-center py-16 text-gray-400">
+                                    {searchQuery ? (
+                                        <>
+                                            <Search className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                                            <p className="text-lg">No chores match "{searchQuery}"</p>
+                                            <p className="text-sm mt-1">Try a different search term</p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="w-10 h-10 mx-auto mb-3 opacity-40" />
+                                            <p className="text-lg">All caught up! No chores to show.</p>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
                             {filteredImportantDue.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center">
@@ -586,37 +604,25 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 2: Standard Due (Non-urgent) */}
-                            <div>
-                                <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
-                                    <ClipboardList className="w-6 h-6 mr-2 text-amber-500" />
-                                    Tasks due ({filteredStandardDue.length})
-                                </h2>
-
-                                {filteredStandardDue.length === 0 && filteredImportantDue.length === 0 ? (
-                                    <div
-                                        className="bg-white p-4 rounded-xl text-center text-gray-500 border border-indigo-200 shadow">
-                                        <p>🎉 All chores are up-to-date! Great job!</p>
+                            {filteredStandardDue.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
+                                        <ClipboardList className="w-6 h-6 mr-2 text-amber-500" />
+                                        Tasks due ({filteredStandardDue.length})
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {filteredStandardDue.map(chore => (
+                                            <ChoreCard
+                                                key={chore.id}
+                                                chore={chore}
+                                                onComplete={handleCompleteChore}
+                                                onSelect={setSelectedChoreId}
+                                            />
+                                        ))}
                                     </div>
-                                ) : (
-                                    filteredStandardDue.length > 0 ? (
-                                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                            {filteredStandardDue.map(chore => (
-                                                <ChoreCard
-                                                    key={chore.id}
-                                                    chore={chore}
-                                                    onComplete={handleCompleteChore}
-                                                    onSelect={setSelectedChoreId}
-                                                />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="text-gray-400 italic mb-4">No other tasks due.</div>
-                                    )
-                                )}
-                            </div>
+                                </div>
+                            )}
 
-                            {/* Section 3: Completed */}
                             {filteredCompletedToday.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
@@ -635,7 +641,6 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 4: Next Week */}
                             {filteredNextWeek.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
@@ -655,7 +660,6 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 5: Next Month */}
                             {filteredNextMonth.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
@@ -675,7 +679,6 @@ const App = () => {
                                 </div>
                             )}
 
-                            {/* Section 6: Far Future */}
                             {filteredFarFuture.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
