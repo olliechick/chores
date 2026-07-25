@@ -22,6 +22,7 @@ export type ChoreWithStatus = Chore & {
 };
 
 export interface ChoreLogEntry {
+    id: string;
     date: Date;
     completedBy: string;
 }

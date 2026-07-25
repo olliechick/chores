@@ -12,6 +12,7 @@ import {
     Mail,
     RotateCcw,
     Search,
+    Trash2,
     User,
     X,
     Zap
@@ -20,7 +21,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import type { Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
-import { completeChoreApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
+import { completeChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
 import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
 import type { Session } from '@supabase/supabase-js';
@@ -307,6 +308,18 @@ const App = () => {
             toast.error(`Failed to save '${choreToComplete.name}'. ${errorMessage}`);
         }
     }, [state.chores, currentUserId]);
+
+    // 4b. Delete log entry handler
+    const handleDeleteLogEntry = useCallback(async (pageId: string) => {
+        try {
+            await deleteChoreLogApi(pageId);
+            setHistoryEntries(prev => prev.filter(e => e.id !== pageId));
+            toast.success("Entry deleted.");
+        } catch (e) {
+            console.error("Failed to delete log entry:", e);
+            toast.error("Failed to delete entry.");
+        }
+    }, []);
 
 
     // 5. Filtering and Sorting Logic
@@ -756,24 +769,42 @@ const App = () => {
                                                 <User className="w-4 h-4 text-indigo-400" />
                                                 <span className="text-sm font-medium text-gray-700">{historyEntries[0].completedBy}</span>
                                             </div>
-                                            <span className="text-sm text-gray-500">
-                                                {format(historyEntries[0].date, 'd MMM yyyy')}
-                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm text-gray-500">
+                                                    {format(historyEntries[0].date, 'd MMM yyyy')}
+                                                </span>
+                                                <button
+                                                    onClick={() => handleDeleteLogEntry(historyEntries[0].id)}
+                                                    className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50"
+                                                    aria-label="Delete entry"
+                                                >
+                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                     {historyEntries.length > 1 && (
                                         <>
                                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">History</p>
                                             <ul className="space-y-2">
-                                                {historyEntries.slice(1).map((entry, i) => (
-                                                    <li key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                                {historyEntries.slice(1).map((entry) => (
+                                                    <li key={entry.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                                                         <div className="flex items-center gap-2">
                                                             <User className="w-4 h-4 text-indigo-400" />
                                                             <span className="text-sm font-medium text-gray-700">{entry.completedBy}</span>
                                                         </div>
-                                                        <span className="text-sm text-gray-500">
-                                                            {format(entry.date, 'd MMM yyyy')}
-                                                        </span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-sm text-gray-500">
+                                                                {format(entry.date, 'd MMM yyyy')}
+                                                            </span>
+                                                            <button
+                                                                onClick={() => handleDeleteLogEntry(entry.id)}
+                                                                className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50"
+                                                                aria-label="Delete entry"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
                                                     </li>
                                                 ))}
                                             </ul>

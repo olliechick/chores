@@ -68,11 +68,12 @@ export const handler: Handler = async (event) => {
                 }
 
                 return {
+                    id: page.id,
                     date: dateStr || null,
                     completedBy,
                 };
             })
-            .filter((entry): entry is { date: string; completedBy: string } => entry.date !== null);
+            .filter((entry): entry is { id: string; date: string; completedBy: string } => entry.date !== null);
 
         return {
             statusCode: 200,

@@ -115,9 +115,10 @@ export const fetchChoreHistory = async (choreId: string): Promise<ChoreLogEntry[
         throw new Error(err.error || "Failed to fetch chore history.");
     }
 
-    const entries: { date: string; completedBy: string }[] = await response.json();
+    const entries: { id: string; date: string; completedBy: string }[] = await response.json();
 
     return entries.map(entry => ({
+        id: entry.id,
         date: parseNotionDate(entry.date)!,
         completedBy: entry.completedBy,
     }));
@@ -159,4 +160,25 @@ export const fetchLogPage = async (
     }
 
     return response.json();
+};
+
+/**
+ * Deletes a chore log entry by archiving its Notion page.
+ */
+export const deleteChoreLogApi = async (pageId: string): Promise<void> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch(`/.netlify/functions/delete-chore-log?pageId=${encodeURIComponent(pageId)}`, {
+        method: 'DELETE',
+        headers: headers,
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete log entry.");
+    }
 };
