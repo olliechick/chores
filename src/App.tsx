@@ -747,7 +747,9 @@ const App = () => {
                                     <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                                         <p className="text-sm text-indigo-600 font-medium mb-1 text-center">Last completed</p>
                                         <p className="text-2xl font-bold text-indigo-700 text-center">
-                                            {formatDistanceToNowStrict(historyEntries[0].date, { addSuffix: true })}
+                                            {isToday(historyEntries[0].date)
+                                                ? 'Today'
+                                                : formatDistanceToNowStrict(historyEntries[0].date, { addSuffix: true })}
                                         </p>
                                         <div className="mt-3 flex items-center justify-between p-3 bg-white rounded-lg border border-indigo-100">
                                             <div className="flex items-center gap-2">
