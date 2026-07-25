@@ -318,24 +318,32 @@ const App = () => {
         }
     }, [state.chores, currentUserId]);
 
-    // 4b. Delete log entry handler (optimistic)
-    const handleDeleteLogEntry = useCallback(async (pageId: string) => {
-        const deleted = historyEntries.find(e => e.id === pageId);
-        setHistoryEntries(prev => prev.filter(e => e.id !== pageId));
+    // 4b. Delete log entry handler
+    const handleDeleteLogEntry = useCallback(async (pageId: string, choreId: string) => {
         setDeletingId(pageId);
         try {
             await deleteChoreLogApi(pageId);
+            setHistoryEntries(prev => {
+                const remaining = prev.filter(e => e.id !== pageId);
+                const newLastCompleted = remaining.length > 0
+                    ? remaining.reduce((latest, e) => e.date > latest ? e.date : latest, remaining[0].date)
+                    : null;
+                setState(s => ({
+                    ...s,
+                    chores: s.chores.map(c =>
+                        c.id === choreId ? { ...c, lastCompleted: newLastCompleted } : c
+                    ),
+                }));
+                return remaining;
+            });
             toast.success("Entry deleted.");
         } catch (e) {
             console.error("Failed to delete log entry:", e);
-            if (deleted) {
-                setHistoryEntries(prev => [...prev, deleted].sort((a, b) => b.date.getTime() - a.date.getTime()));
-            }
             toast.error("Failed to delete entry.");
         } finally {
             setDeletingId(null);
         }
-    }, [historyEntries]);
+    }, []);
 
 
     // 5. Filtering and Sorting Logic
@@ -790,7 +798,7 @@ const App = () => {
                                                     {format(historyEntries[0].date, 'd MMM yyyy')}
                                                 </span>
                                                 <button
-                                                    onClick={() => handleDeleteLogEntry(historyEntries[0].id)}
+                                                    onClick={() => handleDeleteLogEntry(historyEntries[0].id, selectedChoreId!)}
                                                     disabled={deletingId === historyEntries[0].id}
                                                     className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 disabled:opacity-50"
                                                     aria-label="Delete entry"
@@ -817,7 +825,7 @@ const App = () => {
                                                                 {format(entry.date, 'd MMM yyyy')}
                                                             </span>
                                                             <button
-                                                                onClick={() => handleDeleteLogEntry(entry.id)}
+                                                                onClick={() => handleDeleteLogEntry(entry.id, selectedChoreId!)}
                                                                 disabled={deletingId === entry.id}
                                                                 className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 disabled:opacity-50"
                                                                 aria-label="Delete entry"
