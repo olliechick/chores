@@ -11,6 +11,7 @@ import {
     LogOut,
     Mail,
     RotateCcw,
+    Search,
     User,
     X,
     Zap
@@ -61,6 +62,9 @@ const App = () => {
     const [selectedChoreId, setSelectedChoreId] = useState<string | null>(null);
     const [historyEntries, setHistoryEntries] = useState<ChoreLogEntry[]>([]);
     const [historyLoading, setHistoryLoading] = useState(false);
+
+    // Search state
+    const [searchQuery, setSearchQuery] = useState("");
 
     // 1. Auth & Session Management
     useEffect(() => {
@@ -402,6 +406,17 @@ const App = () => {
         };
     }, [state.chores, currentUserId]);
 
+    // Apply search filter to all categories
+    const q = searchQuery.toLowerCase().trim();
+    const matchesSearch = q === '' ? () => true : (c: { name: string }) => c.name.toLowerCase().includes(q);
+
+    const filteredImportantDue = importantDueChores.filter(matchesSearch);
+    const filteredStandardDue = standardDueChores.filter(matchesSearch);
+    const filteredCompletedToday = completedTodayChores.filter(matchesSearch);
+    const filteredNextWeek = nextWeekChores.filter(matchesSearch);
+    const filteredNextMonth = nextMonthChores.filter(matchesSearch);
+    const filteredFarFuture = farFutureChores.filter(matchesSearch);
+
     // --- RENDER ---
 
     if (isVerifying) {
@@ -474,6 +489,32 @@ const App = () => {
                         </div>
                     </div>
                 )}
+
+                {/* Search */}
+                {session && (
+                    <div className="mt-4 max-w-sm mx-auto">
+                        <div className="relative">
+                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Search className="w-5 h-5 text-gray-400" />
+                            </div>
+                            <input
+                                type="text"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="block w-full pl-10 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm"
+                                placeholder="Search chores..."
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery("")}
+                                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                )}
             </header>
 
             {/* Login Form (Shown when no session) */}
@@ -535,14 +576,14 @@ const App = () => {
                         <main className="space-y-8">
 
                             {/* Section 1: IMPORTANT Action Required */}
-                            {importantDueChores.length > 0 && (
+                            {filteredImportantDue.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-800 flex items-center">
                                         <Zap className="w-6 h-6 mr-2 text-red-500 fill-red-500" />
-                                        Action required ({importantDueChores.length})
+                                        Action required ({filteredImportantDue.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {importantDueChores.map(chore => (
+                                        {filteredImportantDue.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
@@ -558,18 +599,18 @@ const App = () => {
                             <div>
                                 <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                     <ClipboardList className="w-6 h-6 mr-2 text-amber-500" />
-                                    Tasks due ({standardDueChores.length})
+                                    Tasks due ({filteredStandardDue.length})
                                 </h2>
 
-                                {standardDueChores.length === 0 && importantDueChores.length === 0 ? (
+                                {filteredStandardDue.length === 0 && filteredImportantDue.length === 0 ? (
                                     <div
                                         className="bg-white p-4 rounded-xl text-center text-gray-500 border border-indigo-200 shadow">
                                         <p>🎉 All chores are up-to-date! Great job!</p>
                                     </div>
                                 ) : (
-                                    standardDueChores.length > 0 ? (
+                                    filteredStandardDue.length > 0 ? (
                                         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                            {standardDueChores.map(chore => (
+                                            {filteredStandardDue.map(chore => (
                                                 <ChoreCard
                                                     key={chore.id}
                                                     chore={chore}
@@ -585,14 +626,14 @@ const App = () => {
                             </div>
 
                             {/* Section 3: Completed */}
-                            {completedTodayChores.length > 0 && (
+                            {filteredCompletedToday.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <CheckCircle2 className="w-6 h-6 mr-2 text-green-600" /> Completed today
-                                        ({completedTodayChores.length})
+                                        ({filteredCompletedToday.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {completedTodayChores.map(chore => (
+                                        {filteredCompletedToday.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
@@ -604,14 +645,14 @@ const App = () => {
                             )}
 
                             {/* Section 4: Next Week */}
-                            {nextWeekChores.length > 0 && (
+                            {filteredNextWeek.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <CalendarDays className="w-6 h-6 mr-2 text-blue-500" />
-                                        Next 7 days ({nextWeekChores.length})
+                                        Next 7 days ({filteredNextWeek.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {nextWeekChores.map(chore => (
+                                        {filteredNextWeek.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
@@ -624,14 +665,14 @@ const App = () => {
                             )}
 
                             {/* Section 5: Next Month */}
-                            {nextMonthChores.length > 0 && (
+                            {filteredNextMonth.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <CalendarRange className="w-6 h-6 mr-2 text-purple-500" />
-                                        Next 30 days ({nextMonthChores.length})
+                                        Next 30 days ({filteredNextMonth.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {nextMonthChores.map(chore => (
+                                        {filteredNextMonth.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
@@ -644,14 +685,14 @@ const App = () => {
                             )}
 
                             {/* Section 6: Far Future */}
-                            {farFutureChores.length > 0 && (
+                            {filteredFarFuture.length > 0 && (
                                 <div>
                                     <h2 className="text-2xl font-bold mb-4 text-gray-700 flex items-center">
                                         <Calendar className="w-6 h-6 mr-2 text-gray-400" />
-                                        Far future ({farFutureChores.length})
+                                        Far future ({filteredFarFuture.length})
                                     </h2>
                                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                        {farFutureChores.map(chore => (
+                                        {filteredFarFuture.map(chore => (
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
