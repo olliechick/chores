@@ -318,20 +318,24 @@ const App = () => {
         }
     }, [state.chores, currentUserId]);
 
-    // 4b. Delete log entry handler
+    // 4b. Delete log entry handler (optimistic)
     const handleDeleteLogEntry = useCallback(async (pageId: string) => {
+        const deleted = historyEntries.find(e => e.id === pageId);
+        setHistoryEntries(prev => prev.filter(e => e.id !== pageId));
         setDeletingId(pageId);
         try {
             await deleteChoreLogApi(pageId);
-            setHistoryEntries(prev => prev.filter(e => e.id !== pageId));
             toast.success("Entry deleted.");
         } catch (e) {
             console.error("Failed to delete log entry:", e);
+            if (deleted) {
+                setHistoryEntries(prev => [...prev, deleted].sort((a, b) => b.date.getTime() - a.date.getTime()));
+            }
             toast.error("Failed to delete entry.");
         } finally {
             setDeletingId(null);
         }
-    }, []);
+    }, [historyEntries]);
 
 
     // 5. Filtering and Sorting Logic
