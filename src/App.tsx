@@ -26,6 +26,8 @@ import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
 import type { Session } from '@supabase/supabase-js';
 
+declare const __BUILD_TIME__: string;
+
 interface AppState {
     chores: Chore[];
     loading: boolean;
@@ -744,7 +746,7 @@ const App = () => {
 
             {/* Footer */}
             <footer className="mt-12 text-center text-sm text-gray-400">
-                <p>Made with ❤️ by Ollie</p>
+                <p>Made with ❤️ by Ollie · v{format(new Date(__BUILD_TIME__), 'yyyy-MM-dd.HH:mm')}</p>
             </footer>
 
             {/* History Modal */}
