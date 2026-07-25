@@ -73,6 +73,8 @@ const App = () => {
         const today = new Date();
         return today.toISOString().split('T')[0];
     });
+    const [saving, setSaving] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     // 1. Auth & Session Management
     useEffect(() => {
@@ -318,6 +320,7 @@ const App = () => {
 
     // 4b. Delete log entry handler
     const handleDeleteLogEntry = useCallback(async (pageId: string) => {
+        setDeletingId(pageId);
         try {
             await deleteChoreLogApi(pageId);
             setHistoryEntries(prev => prev.filter(e => e.id !== pageId));
@@ -325,6 +328,8 @@ const App = () => {
         } catch (e) {
             console.error("Failed to delete log entry:", e);
             toast.error("Failed to delete entry.");
+        } finally {
+            setDeletingId(null);
         }
     }, []);
 
@@ -782,10 +787,13 @@ const App = () => {
                                                 </span>
                                                 <button
                                                     onClick={() => handleDeleteLogEntry(historyEntries[0].id)}
-                                                    className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50"
+                                                    disabled={deletingId === historyEntries[0].id}
+                                                    className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 disabled:opacity-50"
                                                     aria-label="Delete entry"
                                                 >
-                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                    {deletingId === historyEntries[0].id
+                                                        ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                        : <Trash2 className="w-3.5 h-3.5" />}
                                                 </button>
                                             </div>
                                         </div>
@@ -806,10 +814,13 @@ const App = () => {
                                                             </span>
                                                             <button
                                                                 onClick={() => handleDeleteLogEntry(entry.id)}
-                                                                className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50"
+                                                                disabled={deletingId === entry.id}
+                                                                className="text-gray-300 hover:text-red-500 transition-colors p-1 rounded-full hover:bg-red-50 disabled:opacity-50"
                                                                 aria-label="Delete entry"
                                                             >
-                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                                {deletingId === entry.id
+                                                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                                                    : <Trash2 className="w-3.5 h-3.5" />}
                                                             </button>
                                                         </div>
                                                     </li>
@@ -854,18 +865,23 @@ const App = () => {
                             <div className="flex gap-3 justify-end">
                                 <button
                                     onClick={() => setConfirmingChoreId(null)}
-                                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                                    disabled={saving}
+                                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
                                 >
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={() => {
-                                        handleCompleteChore(confirmingChoreId, confirmDate);
+                                    onClick={async () => {
+                                        setSaving(true);
+                                        await handleCompleteChore(confirmingChoreId, confirmDate);
+                                        setSaving(false);
                                         setConfirmingChoreId(null);
                                     }}
-                                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-md"
+                                    disabled={saving}
+                                    className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2"
                                 >
-                                    Confirm
+                                    {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {saving ? 'Saving...' : 'Confirm'}
                                 </button>
                             </div>
                         </div>
