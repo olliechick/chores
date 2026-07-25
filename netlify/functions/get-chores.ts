@@ -35,6 +35,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         const lastCompletedProp = props['Last completed at'];
         const roomProp = props['Room'];
         const importantProp = props['Important'];
+        const searchTermsProp = props['Search terms'];
 
         // --- Validation ---
         if (nameProp?.type !== 'title' || nameProp.title.length === 0) {
@@ -63,6 +64,11 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         // Parse 'Important' checkbox (default to false if missing or wrong type)
         const important = importantProp?.type === 'checkbox' ? importantProp.checkbox : false;
 
+        // Parse 'Search terms' (rich_text, default to empty string)
+        const searchTerms = (searchTermsProp?.type === 'rich_text' && searchTermsProp.rich_text.length > 0)
+            ? searchTermsProp.rich_text.map(t => t.plain_text).join(' ')
+            : '';
+
         const assignees: AppUser[] = assigneeProp.people.map(person => {
             let personName = ('name' in person ? person.name : person.id) || 'Unassigned';
 
@@ -81,6 +87,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             lastCompleted: lastCompletedDate ? new Date(lastCompletedDate) : null,
             room,
             important,
+            searchTerms,
         };
 
     } catch (error) {

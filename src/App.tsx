@@ -450,6 +450,7 @@ const App = () => {
     const matchesSearch = q === '' ? () => true : (c: Chore) =>
         c.name.toLowerCase().includes(q) ||
         c.room?.toLowerCase().includes(q) ||
+        c.searchTerms.toLowerCase().includes(q) ||
         c.assignees.some(a => a.name.toLowerCase().includes(q));
 
     const filteredImportantDue = importantDueChores.filter(matchesSearch);

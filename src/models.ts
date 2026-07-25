@@ -11,6 +11,7 @@ export interface Chore {
     lastCompleted: Date | null; // The last time it was completed (Rollup from Log)
     room: string | null; // The name of the 'Select' option for the room
     important: boolean;
+    searchTerms: string;
 }
 
 export type Status = 'Overdue' | 'Due' | 'Done' | 'NextWeek' | 'NextMonth' | 'FarFuture';
