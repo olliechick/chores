@@ -174,6 +174,8 @@ export const createChoreApi = async (input: {
     room?: string;
     important?: boolean;
     searchTerms?: string;
+    lastDone?: string;
+    completedById?: string;
 }): Promise<void> => {
     const headers = await getAuthHeader();
 

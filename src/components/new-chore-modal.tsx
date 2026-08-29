@@ -24,6 +24,7 @@ export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: N
     const [room, setRoom] = useState("");
     const [important, setImportant] = useState(false);
     const [searchTerms, setSearchTerms] = useState("");
+    const [lastDone, setLastDone] = useState("");
 
     const [rooms, setRooms] = useState<string[]>([]);
     const [roomsLoading, setRoomsLoading] = useState(true);
@@ -76,6 +77,8 @@ export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: N
                 room: room || undefined,
                 important,
                 searchTerms: searchTerms.trim() || undefined,
+                lastDone: lastDone || undefined,
+                completedById: lastDone && currentUserId ? currentUserId : undefined,
             });
             onCreated();
         } catch (e) {
@@ -180,6 +183,20 @@ export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: N
                                 </button>
                             ))}
                         </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="chore-last-done">
+                            Last done (optional)
+                        </label>
+                        <input
+                            id="chore-last-done"
+                            type="date"
+                            value={lastDone}
+                            onChange={(e) => setLastDone(e.target.value)}
+                            className={inputClass}
+                        />
+                        <p className="text-xs text-gray-400 mt-1">If set, a history entry is created for this date.</p>
                     </div>
 
                     <div>

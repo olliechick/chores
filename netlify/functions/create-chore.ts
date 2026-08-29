@@ -9,6 +9,7 @@ const supabase = createClient(
 
 const notion = new Client({ auth: process.env.NOTION_API_TOKEN });
 const choreDbId = process.env.CHORE_DB_ID!;
+const logDbId = process.env.CHORE_LOG_DB_ID!;
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
@@ -42,7 +43,7 @@ export const handler: Handler = async (event) => {
             throw new Error("Missing body");
         }
 
-        const { name, assignees, days, room, important, searchTerms } = JSON.parse(event.body);
+        const { name, assignees, days, room, important, searchTerms, lastDone, completedById } = JSON.parse(event.body);
 
         if (!name || typeof name !== 'string' || name.trim() === '') {
             return { statusCode: 400, body: JSON.stringify({ error: "Name is required" }) };
@@ -52,6 +53,9 @@ export const handler: Handler = async (event) => {
         }
         if (typeof days !== 'number' || !Number.isInteger(days) || days < 1) {
             return { statusCode: 400, body: JSON.stringify({ error: "Days must be a positive integer" }) };
+        }
+        if (lastDone !== undefined && (typeof lastDone !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(lastDone))) {
+            return { statusCode: 400, body: JSON.stringify({ error: "Last done must be a date in YYYY-MM-DD format" }) };
         }
 
         const properties: Record<string, unknown> = {
@@ -69,10 +73,24 @@ export const handler: Handler = async (event) => {
             properties['Search terms'] = { rich_text: [{ text: { content: searchTerms.trim() } }] };
         }
 
-        await notion.pages.create({
+        const createdPage = await notion.pages.create({
             parent: { data_source_id: choreDbId },
             properties,
         });
+
+        if (lastDone) {
+            const completedBy = typeof completedById === 'string' && completedById ? completedById : assignees[0];
+
+            await notion.pages.create({
+                parent: { data_source_id: logDbId },
+                properties: {
+                    '': { title: [{ text: { content: "" } }] },
+                    Date: { date: { start: lastDone } },
+                    'Completed by': { people: [{ id: completedBy }] },
+                    Chore: { relation: [{ id: createdPage.id }] },
+                }
+            });
+        }
 
         return {
             statusCode: 200,
