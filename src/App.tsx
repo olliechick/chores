@@ -46,6 +46,9 @@ const App = () => {
     const [email, setEmail] = useState("");
     const [isVerifying, setIsVerifying] = useState(false);
 
+    // Whether the initial session check is still in progress (avoids flashing the login form)
+    const [checkingSession, setCheckingSession] = useState(true);
+
     // 'Who are you?' state
     const [allUsers, setAllUsers] = useState<AppUser[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -88,8 +91,9 @@ const App = () => {
             supabase.auth.verifyOtp({
                 token_hash,
                 type: type || "email",
-            }).then(({ error }) => {
+            }).then(({ data, error }) => {
                 setIsVerifying(false);
+                setSession(data.session);
                 if (error) {
                     toast.error("Login link failed or expired.");
                 } else {
@@ -97,12 +101,16 @@ const App = () => {
                     // Clean URL
                     window.history.replaceState({}, document.title, "/");
                 }
-            });
+            }).finally(() => setCheckingSession(false));
         }
 
         // B. Check existing session
         supabase.auth.getSession().then(({ data: { session } }) => {
             setSession(session);
+            // Only mark the check complete here if there's no magic link flow pending
+            if (!token_hash) {
+                setCheckingSession(false);
+            }
         });
 
         // C. Listen for auth changes
@@ -500,6 +508,15 @@ const App = () => {
             <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
                 <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
                 <h2 className="text-xl font-semibold text-gray-700">Verifying login link…</h2>
+            </div>
+        );
+    }
+
+    if (checkingSession) {
+        return (
+            <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
+                <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mb-4" />
+                <h2 className="text-xl font-semibold text-gray-700">Loading…</h2>
             </div>
         );
     }
