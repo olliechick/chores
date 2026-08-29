@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { Loader2, X } from 'lucide-react';
-import type { AppUser } from "../models";
-import { createChoreApi, fetchRoomOptions } from "../notion-api";
+import type { AppUser, Chore } from "../models";
+import { createChoreApi, fetchRoomOptions, updateChoreApi } from "../notion-api";
 
-type NewChoreModalProps = {
+type ChoreFormModalProps = {
+    chore: Chore | null;
     allUsers: AppUser[];
     currentUserId: string | null;
     onClose: () => void;
-    onCreated: () => void;
+    onSaved: () => Promise<void>;
 };
 
 const FREQUENCY_PRESETS: { label: string; days: number }[] = [
@@ -17,13 +18,15 @@ const FREQUENCY_PRESETS: { label: string; days: number }[] = [
     { label: 'Monthly', days: 30 },
 ];
 
-export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: NewChoreModalProps) => {
-    const [name, setName] = useState("");
-    const [assigneeIds, setAssigneeIds] = useState<string[]>(currentUserId ? [currentUserId] : []);
-    const [days, setDays] = useState<number>(7);
-    const [room, setRoom] = useState("");
-    const [important, setImportant] = useState(false);
-    const [searchTerms, setSearchTerms] = useState("");
+export const ChoreFormModal = ({ chore, allUsers, currentUserId, onClose, onSaved }: ChoreFormModalProps) => {
+    const isEdit = chore !== null;
+
+    const [name, setName] = useState(chore?.name ?? "");
+    const [assigneeIds, setAssigneeIds] = useState<string[]>(chore ? chore.assignees.map(a => a.id) : (currentUserId ? [currentUserId] : []));
+    const [days, setDays] = useState<number>(chore?.schedule ?? 7);
+    const [room, setRoom] = useState(chore?.room ?? "");
+    const [important, setImportant] = useState(chore?.important ?? false);
+    const [searchTerms, setSearchTerms] = useState(chore?.searchTerms ?? "");
     const [lastDone, setLastDone] = useState("");
 
     const [rooms, setRooms] = useState<string[]>([]);
@@ -70,22 +73,32 @@ export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: N
 
         setSaving(true);
         try {
-            await createChoreApi({
-                name: name.trim(),
-                assignees: assigneeIds,
-                days,
-                room: room || undefined,
-                important,
-                searchTerms: searchTerms.trim() || undefined,
-                lastDone: lastDone || undefined,
-                completedById: lastDone && currentUserId ? currentUserId : undefined,
-            });
-            onCreated();
+            if (chore) {
+                await updateChoreApi(chore.id, {
+                    name: name.trim(),
+                    assignees: assigneeIds,
+                    days,
+                    room: room || undefined,
+                    important,
+                    searchTerms: searchTerms.trim() || undefined,
+                });
+            } else {
+                await createChoreApi({
+                    name: name.trim(),
+                    assignees: assigneeIds,
+                    days,
+                    room: room || undefined,
+                    important,
+                    searchTerms: searchTerms.trim() || undefined,
+                    lastDone: lastDone || undefined,
+                    completedById: lastDone && currentUserId ? currentUserId : undefined,
+                });
+            }
+            await onSaved();
         } catch (e) {
-            console.error("Failed to create chore:", e);
-            const errorMessage = e instanceof Error ? e.message : "Failed to create chore.";
+            console.error("Failed to save chore:", e);
+            const errorMessage = e instanceof Error ? e.message : "Failed to save chore.";
             setError(errorMessage);
-        } finally {
             setSaving(false);
         }
     };
@@ -104,7 +117,7 @@ export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: N
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                    <h3 className="text-lg font-bold text-gray-800">New chore</h3>
+                    <h3 className="text-lg font-bold text-gray-800">{isEdit ? "Edit chore" : "New chore"}</h3>
                     <button
                         onClick={onClose}
                         className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
@@ -185,19 +198,21 @@ export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: N
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="chore-last-done">
-                            Last done (optional)
-                        </label>
-                        <input
-                            id="chore-last-done"
-                            type="date"
-                            value={lastDone}
-                            onChange={(e) => setLastDone(e.target.value)}
-                            className={inputClass}
-                        />
-                        <p className="text-xs text-gray-400 mt-1">If set, a history entry is created for this date.</p>
-                    </div>
+                    {!isEdit && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="chore-last-done">
+                                Last done (optional)
+                            </label>
+                            <input
+                                id="chore-last-done"
+                                type="date"
+                                value={lastDone}
+                                onChange={(e) => setLastDone(e.target.value)}
+                                className={inputClass}
+                            />
+                            <p className="text-xs text-gray-400 mt-1">If set, a history entry is created for this date.</p>
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="chore-room">
@@ -272,7 +287,7 @@ export const NewChoreModal = ({ allUsers, currentUserId, onClose, onCreated }: N
                         className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2"
                     >
                         {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {saving ? 'Creating...' : 'Create'}
+                        {saving ? (isEdit ? 'Saving...' : 'Creating...') : (isEdit ? 'Save' : 'Create')}
                     </button>
                 </div>
             </div>

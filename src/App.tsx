@@ -10,6 +10,7 @@ import {
     Loader2,
     LogOut,
     Mail,
+    Pencil,
     Plus,
     RotateCcw,
     Search,
@@ -22,7 +23,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import type { AppUser, Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, formatSchedule, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
-import { NewChoreModal } from "./components/new-chore-modal";
+import { ChoreFormModal } from "./components/chore-form-modal";
 import { completeChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
 import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
@@ -74,6 +75,9 @@ const App = () => {
 
     // New chore modal visibility
     const [showNewChoreModal, setShowNewChoreModal] = useState(false);
+
+    // Edit modal target (chore being edited)
+    const [editingChore, setEditingChore] = useState<Chore | null>(null);
 
     // Mark done confirmation modal
     const [confirmingChoreId, setConfirmingChoreId] = useState<string | null>(null);
@@ -207,11 +211,13 @@ const App = () => {
         }
     }, [session?.user.email]);
 
-    const handleChoreCreated = useCallback(async () => {
+    const handleChoreSaved = useCallback(async () => {
         await refreshChores();
+        const wasEdit = editingChore !== null;
         setShowNewChoreModal(false);
-        toast.success("Chore created!");
-    }, [refreshChores]);
+        setEditingChore(null);
+        toast.success(wasEdit ? "Chore updated!" : "Chore created!");
+    }, [refreshChores, editingChore]);
 
     // 3. Data Fetch (Triggered when session exists, but only once)
     useEffect(() => {
@@ -874,12 +880,24 @@ const App = () => {
                                     );
                                 })()}
                             </div>
-                            <button
-                                onClick={() => setSelectedChoreId(null)}
-                                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100 shrink-0"
-                            >
-                                <X className="w-5 h-5" />
-                            </button>
+                            <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                    onClick={() => {
+                                        const chore = state.chores.find(c => c.id === selectedChoreId);
+                                        if (chore) setEditingChore(chore);
+                                    }}
+                                    className="text-gray-400 hover:text-indigo-600 transition-colors p-1 rounded-full hover:bg-indigo-50"
+                                    aria-label="Edit chore"
+                                >
+                                    <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => setSelectedChoreId(null)}
+                                    className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100 shrink-0"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
                         </div>
                         <div className="p-4 overflow-y-auto flex-1">
                             {historyLoading ? (
@@ -1013,13 +1031,14 @@ const App = () => {
                     </div>
                 );
             })()}
-        {/* New Chore Modal */}
-            {showNewChoreModal && (
-                <NewChoreModal
+        {/* New/Edit Chore Modal */}
+            {(showNewChoreModal || editingChore) && (
+                <ChoreFormModal
+                    chore={editingChore}
                     allUsers={allUsers}
                     currentUserId={currentUserId}
-                    onClose={() => setShowNewChoreModal(false)}
-                    onCreated={handleChoreCreated}
+                    onClose={() => { setShowNewChoreModal(false); setEditingChore(null); }}
+                    onSaved={handleChoreSaved}
                 />
             )}
         </div>

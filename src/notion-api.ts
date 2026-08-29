@@ -199,6 +199,41 @@ export const createChoreApi = async (input: {
 };
 
 /**
+ * Updates an existing chore in Notion.
+ */
+export const updateChoreApi = async (
+    choreId: string,
+    input: {
+        name: string;
+        assignees: string[];
+        days: number;
+        room?: string | null;
+        important?: boolean;
+        searchTerms?: string;
+    },
+): Promise<void> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch('/.netlify/functions/update-chore', {
+        method: 'POST',
+        headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ...input, choreId }),
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to update chore.");
+    }
+};
+
+/**
  * Fetches the available room options from the Chore database schema.
  */
 export const fetchRoomOptions = async (): Promise<string[]> => {
