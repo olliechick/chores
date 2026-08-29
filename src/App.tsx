@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import type { Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
-import { calculateNextDueDate, getChoreStatus } from "./utils";
+import { calculateNextDueDate, formatSchedule, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { completeChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
 import { supabase } from "./supabase";
@@ -761,9 +761,19 @@ const App = () => {
                         onClick={(e) => e.stopPropagation()}
                     >
                         <div className="flex items-center justify-between p-4 border-b border-gray-100">
-                            <h3 className="text-lg font-bold text-gray-800 truncate pr-2">
-                                {state.chores.find(c => c.id === selectedChoreId)?.name ?? 'Chore History'}
-                            </h3>
+                            <div className="min-w-0 pr-2">
+                                <h3 className="text-lg font-bold text-gray-800 truncate">
+                                    {state.chores.find(c => c.id === selectedChoreId)?.name ?? 'Chore History'}
+                                </h3>
+                                {(() => {
+                                    const chore = state.chores.find(c => c.id === selectedChoreId);
+                                    return chore && (
+                                        <p className="text-sm text-gray-500 mt-0.5">
+                                            {formatSchedule(chore.schedule)}
+                                        </p>
+                                    );
+                                })()}
+                            </div>
                             <button
                                 onClick={() => setSelectedChoreId(null)}
                                 className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100 shrink-0"

@@ -6,6 +6,18 @@ export const isDefined = <T>(value: T | null | undefined): value is T => {
 };
 
 /**
+ * Formats how often a chore should be done based on its schedule in days.
+ */
+export const formatSchedule = (days: number): string => {
+    if (days <= 1) return 'Daily';
+    if (days === 7) return 'Weekly';
+    if (days === 30) return 'Monthly';
+    if (days > 90) return `Every ${Math.round(days / 30.44)} months`;
+    if (days > 30) return `Every ${Math.round(days / 7)} weeks`;
+    return `Every ${days} days`;
+};
+
+/**
  * Calculates the next due date for a given chore based on its schedule.
  */
 export const calculateNextDueDate = (chore: Chore): Date => {
