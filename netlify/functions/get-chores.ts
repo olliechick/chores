@@ -70,14 +70,17 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             : '';
 
         const assignees: AppUser[] = assigneeProp.people.map(person => {
-            let personName = ('name' in person ? person.name : person.id) || 'Unassigned';
+            const fullName = ('name' in person ? person.name : person.id) || 'Unassigned';
 
-            // Get only the first name
+            // Get only the first name for display on cards
+            let personName = fullName;
             if (personName !== 'Unassigned') {
                 personName = personName.split(' ')[0];
             }
 
-            return { id: person.id, name: personName };
+            const avatarUrl = 'avatar_url' in person ? person.avatar_url ?? null : null;
+
+            return { id: person.id, name: personName, fullName, avatarUrl };
         });
         return {
             id,

@@ -18,7 +18,7 @@ import {
     Zap
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import type { Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
+import type { AppUser, Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, formatSchedule, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { completeChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
@@ -32,11 +32,6 @@ interface AppState {
     chores: Chore[];
     loading: boolean;
     error: string | null;
-}
-
-type AppUser = {
-    id: string;
-    name: string;
 }
 
 const App = () => {
@@ -54,6 +49,9 @@ const App = () => {
     // 'Who are you?' state
     const [allUsers, setAllUsers] = useState<AppUser[]>([]);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+    // User menu (header dropdown)
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
 
     // Track whether chores have been fetched to avoid re-fetching on session reference changes
     const choresLoadedRef = useRef(false);
@@ -160,18 +158,22 @@ const App = () => {
                     const data = await fetchChores();
                     setState(prev => ({ ...prev, chores: data, loading: false }));
 
-                    // Parse unique users from chores for the dropdown
-                    const users = new Map<string, string>();
+                    // Parse unique users from chores for the menu
+                    const users = new Map<string, AppUser>();
                     data.forEach(chore => {
                         // Loop through each chore's assignees array
                         chore.assignees.forEach(person => {
-                            if (!users.has(person.id)) {
-                                users.set(person.id, person.name);
+                            const existing = users.get(person.id);
+                            if (!existing) {
+                                users.set(person.id, person);
+                            } else if (!existing.fullName && person.fullName) {
+                                // Upgrade to a copy with a full name if we found one
+                                users.set(person.id, { ...person });
                             }
                         });
                     });
 
-                    const userList: AppUser[] = Array.from(users.entries()).map(([id, name]) => ({ id, name }));
+                    const userList: AppUser[] = Array.from(users.values());
                     setAllUsers(userList);
 
                     // Try to match Supabase email to Notion user
@@ -460,6 +462,37 @@ const App = () => {
     const filteredNextMonth = nextMonthChores.filter(matchesSearch);
     const filteredFarFuture = farFutureChores.filter(matchesSearch);
 
+    // Current user for the menu header
+    const currentUser = allUsers.find(u => u.id === currentUserId) ?? null;
+
+    // Renders an avatar image or a fallback initial
+    const avatarFor = (user: AppUser) => (
+        user.avatarUrl ? (
+            <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+        ) : (
+            <span className="w-full h-full flex items-center justify-center text-xs font-bold text-indigo-600 bg-indigo-100">
+                {user.name.charAt(0).toUpperCase()}
+            </span>
+        )
+    );
+
+    // Renders the avatar for the collapsed menu button
+    const userMenuAvatar = (user: AppUser | null) => (
+        user ? (
+            user.avatarUrl ? (
+                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+            ) : (
+                <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center font-semibold text-sm">
+                    {user.name.charAt(0).toUpperCase()}
+                </div>
+            )
+        ) : (
+            <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center">
+                <User className="w-5 h-5" />
+            </div>
+        )
+    );
+
     // --- RENDER ---
 
     if (isVerifying) {
@@ -493,13 +526,59 @@ const App = () => {
                             >
                                 <RotateCcw className="w-5 h-5" />
                             </button>
-                            <button
-                                onClick={handleLogout}
-                                className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50"
-                                aria-label="Log out"
-                            >
-                                <LogOut className="w-5 h-5" />
-                            </button>
+
+                            <div className="relative">
+                                <button
+                                    onClick={() => setUserMenuOpen(o => !o)}
+                                    className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-indigo-200 hover:ring-indigo-400 transition-all focus:outline-none cursor-pointer"
+                                    aria-label="User menu"
+                                >
+                                    {userMenuAvatar(currentUser)}
+                                </button>
+
+                                {userMenuOpen && (
+                                    <>
+                                        <div
+                                            className="fixed inset-0 z-30"
+                                            onClick={() => setUserMenuOpen(false)}
+                                        />
+                                        <div className="absolute right-0 z-40 mt-2 w-60 bg-white rounded-xl shadow-2xl border border-gray-100 py-2">
+                                            <div className="px-4 py-2 border-b border-gray-100">
+                                                <p className="font-semibold text-gray-800 truncate">{currentUser?.fullName ?? currentUser?.name}</p>
+                                            </div>
+                                            <div className="py-1">
+                                                {allUsers.map(user => (
+                                                    <button
+                                                        key={user.id}
+                                                        onClick={() => { setCurrentUserId(user.id); setUserMenuOpen(false); }}
+                                                        className={`w-full flex items-center gap-3 px-4 py-2 text-sm text-left transition-colors cursor-pointer ${user.id === currentUserId
+                                                            ? 'bg-indigo-50 text-indigo-700 font-semibold'
+                                                            : 'text-gray-700 hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        <span className="w-6 h-6 rounded-full overflow-hidden shrink-0 bg-indigo-100 flex items-center justify-center text-[10px] font-bold text-indigo-600">
+                                                            {avatarFor(user)}
+                                                        </span>
+                                                        <span className="truncate">{user.name}</span>
+                                                        {user.id === currentUserId && (
+                                                            <CheckCircle2 className="w-4 h-4 text-indigo-600 ml-auto shrink-0" />
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <div className="border-t border-gray-100 pt-1">
+                                                <button
+                                                    onClick={handleLogout}
+                                                    className="w-full flex items-center gap-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                                                >
+                                                    <LogOut className="w-4 h-4" />
+                                                    Log out
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -507,23 +586,6 @@ const App = () => {
                 {/* Search + User Selector */}
                 {session && (
                     <div className="mt-4 flex flex-col gap-3 max-w-sm mx-auto">
-                        <div className="relative">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <User className="w-5 h-5 text-gray-400" />
-                            </div>
-                            <select
-                                id="user-select"
-                                value={currentUserId || ''}
-                                onChange={(e) => setCurrentUserId(e.target.value)}
-                                className="block w-full pl-10 pr-4 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md shadow-sm"
-                            >
-                                {allUsers.map(user => (
-                                    <option key={user.id} value={user.id}>
-                                        {user.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
                         <div className="relative">
                             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                 <Search className="w-5 h-5 text-gray-400" />

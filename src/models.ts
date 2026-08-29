@@ -1,6 +1,8 @@
 export interface AppUser {
     id: string;
     name: string;
+    fullName: string;
+    avatarUrl: string | null;
 }
 
 export interface Chore {
