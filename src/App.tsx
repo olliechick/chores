@@ -10,6 +10,7 @@ import {
     Loader2,
     LogOut,
     Mail,
+    Plus,
     RotateCcw,
     Search,
     Trash2,
@@ -21,6 +22,7 @@ import toast, { Toaster } from 'react-hot-toast';
 import type { AppUser, Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, formatSchedule, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
+import { NewChoreModal } from "./components/new-chore-modal";
 import { completeChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
 import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
@@ -69,6 +71,9 @@ const App = () => {
 
     // Search state
     const [searchQuery, setSearchQuery] = useState("");
+
+    // New chore modal visibility
+    const [showNewChoreModal, setShowNewChoreModal] = useState(false);
 
     // Mark done confirmation modal
     const [confirmingChoreId, setConfirmingChoreId] = useState<string | null>(null);
@@ -155,58 +160,66 @@ const App = () => {
         await supabase.auth.signOut();
     };
 
+    // Fetches chores and re-derives the user list + current user.
+    const refreshChores = useCallback(async () => {
+        setState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+            const data = await fetchChores();
+            setState(prev => ({ ...prev, chores: data, loading: false }));
+
+            // Parse unique users from chores for the menu
+            const users = new Map<string, AppUser>();
+            data.forEach(chore => {
+                // Loop through each chore's assignees array
+                chore.assignees.forEach(person => {
+                    const existing = users.get(person.id);
+                    if (!existing) {
+                        users.set(person.id, person);
+                    } else if (!existing.fullName && person.fullName) {
+                        // Upgrade to a copy with a full name if we found one
+                        users.set(person.id, { ...person });
+                    }
+                });
+            });
+
+            const userList: AppUser[] = Array.from(users.values());
+            setAllUsers(userList);
+
+            // Try to match Supabase email to Notion user
+            const supabaseEmail = session?.user.email;
+            // Simple heuristic: Does the Notion name appear in the email?
+            const matchingNotionUser = supabaseEmail
+                ? userList.find(u => supabaseEmail.toLowerCase().includes(u.name.toLowerCase()))
+                : null;
+            if (matchingNotionUser) {
+                // If we find a match, set them as the default
+                setCurrentUserId(matchingNotionUser.id);
+            } else if (userList.length > 0) {
+                // Otherwise, fallback to the first user in the list
+                setCurrentUserId(userList[0].id);
+            }
+
+        } catch (e) {
+            console.error("Failed to load chores:", e);
+            const errorMessage = e instanceof Error ? e.message : "Failed to load chores.";
+
+            setState(prev => ({ ...prev, error: errorMessage, loading: false }));
+        }
+    }, [session?.user.email]);
+
+    const handleChoreCreated = useCallback(async () => {
+        await refreshChores();
+        setShowNewChoreModal(false);
+        toast.success("Chore created!");
+    }, [refreshChores]);
 
     // 3. Data Fetch (Triggered when session exists, but only once)
     useEffect(() => {
         if (session && !choresLoadedRef.current) {
             choresLoadedRef.current = true;
-            const loadChores = async () => {
-                setState(prev => ({ ...prev, loading: true, error: null }));
-                try {
-                    const data = await fetchChores();
-                    setState(prev => ({ ...prev, chores: data, loading: false }));
-
-                    // Parse unique users from chores for the menu
-                    const users = new Map<string, AppUser>();
-                    data.forEach(chore => {
-                        // Loop through each chore's assignees array
-                        chore.assignees.forEach(person => {
-                            const existing = users.get(person.id);
-                            if (!existing) {
-                                users.set(person.id, person);
-                            } else if (!existing.fullName && person.fullName) {
-                                // Upgrade to a copy with a full name if we found one
-                                users.set(person.id, { ...person });
-                            }
-                        });
-                    });
-
-                    const userList: AppUser[] = Array.from(users.values());
-                    setAllUsers(userList);
-
-                    // Try to match Supabase email to Notion user
-                    const supabaseEmail = session.user.email;
-                    // Simple heuristic: Does the Notion name appear in the email?
-                    const matchingNotionUser = supabaseEmail
-                        ? userList.find(u => supabaseEmail.toLowerCase().includes(u.name.toLowerCase()))
-                        : null;
-                    if (matchingNotionUser) {
-                        // If we find a match, set them as the default
-                        setCurrentUserId(matchingNotionUser.id);
-                    } else if (userList.length > 0) {
-                        // Otherwise, fallback to the first user in the list
-                        setCurrentUserId(userList[0].id);
-                    }
-
-                } catch (e) {
-                    console.error("Failed to load chores:", e);
-                    const errorMessage = e instanceof Error ? e.message : "Failed to load chores.";
-                    setState(prev => ({ ...prev, error: errorMessage, loading: false }));
-                }
-            };
-            loadChores();
+            refreshChores();
         }
-    }, [session]);
+    }, [session, refreshChores]);
 
     // 3b. Background log sync (runs after chores load — always full rebuild)
     useEffect(() => {
@@ -536,6 +549,14 @@ const App = () => {
 
                     {session && (
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setShowNewChoreModal(true)}
+                                className="text-gray-400 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50"
+                                aria-label="Add new chore"
+                            >
+                                <Plus className="w-5 h-5" />
+                            </button>
+
                             <button
                                 onClick={() => window.location.reload()}
                                 className="text-gray-500 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50"
@@ -992,6 +1013,15 @@ const App = () => {
                     </div>
                 );
             })()}
+        {/* New Chore Modal */}
+            {showNewChoreModal && (
+                <NewChoreModal
+                    allUsers={allUsers}
+                    currentUserId={currentUserId}
+                    onClose={() => setShowNewChoreModal(false)}
+                    onCreated={handleChoreCreated}
+                />
+            )}
         </div>
     );
 };

@@ -165,6 +165,61 @@ export const fetchLogPage = async (
 };
 
 /**
+ * Creates a new chore in Notion.
+ */
+export const createChoreApi = async (input: {
+    name: string;
+    assignees: string[];
+    days: number;
+    room?: string;
+    important?: boolean;
+    searchTerms?: string;
+}): Promise<void> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch('/.netlify/functions/create-chore', {
+        method: 'POST',
+        headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create chore.");
+    }
+};
+
+/**
+ * Fetches the available room options from the Chore database schema.
+ */
+export const fetchRoomOptions = async (): Promise<string[]> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch('/.netlify/functions/get-room-options', {
+        headers: headers,
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to fetch room options.");
+    }
+
+    const data: { rooms: string[] } = await response.json();
+    return data.rooms;
+};
+
+/**
  * Deletes a chore log entry by archiving its Notion page.
  */
 export const deleteChoreLogApi = async (pageId: string): Promise<void> => {
