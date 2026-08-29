@@ -58,8 +58,17 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: "Last done must be a date in YYYY-MM-DD format" }) };
         }
 
+        const trimmedName = name.trim();
+        const existing = await notion.dataSources.query({
+            data_source_id: choreDbId,
+            filter: { property: 'Name', title: { equals: trimmedName } },
+        });
+        if (existing.results.length > 0) {
+            return { statusCode: 409, body: JSON.stringify({ error: `A chore named "${trimmedName}" already exists.` }) };
+        }
+
         const properties: Record<string, unknown> = {
-            'Name': { title: [{ text: { content: name.trim().slice(0, 200) } }] },
+            'Name': { title: [{ text: { content: trimmedName.slice(0, 200) } }] },
             'Assigned to': { people: assignees.map(id => ({ id })) },
             'Days': { number: days },
             'Important': { checkbox: Boolean(important) },

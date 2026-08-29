@@ -7,6 +7,7 @@ type ChoreFormModalProps = {
     chore: Chore | null;
     allUsers: AppUser[];
     currentUserId: string | null;
+    existingNames: string[];
     onClose: () => void;
     onSaved: () => Promise<void>;
 };
@@ -18,7 +19,12 @@ const FREQUENCY_PRESETS: { label: string; days: number }[] = [
     { label: 'Monthly', days: 30 },
 ];
 
-export const ChoreFormModal = ({ chore, allUsers, currentUserId, onClose, onSaved }: ChoreFormModalProps) => {
+const STOPWORDS = new Set([
+    'a', 'after', 'again', 'all', 'an', 'and', 'any', 'at', 'be', 'been', 'before', 'but', 'by',
+    'for', 'from', 'in', 'into', 'is', 'it', 'of', 'on', 'or', 'out', 'over', 'the', 'to', 'up', 'with',
+]);
+
+export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, onClose, onSaved }: ChoreFormModalProps) => {
     const isEdit = chore !== null;
 
     const [name, setName] = useState(chore?.name ?? "");
@@ -33,6 +39,49 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, onClose, onSave
     const [roomsLoading, setRoomsLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const trimmedName = name.trim();
+    const normalize = (value: string) => value.trim().toLowerCase().replace(/\s+/g, ' ');
+    const currentNorm = normalize(trimmedName);
+
+    const exactDuplicate = existingNames.some(entry => {
+        if (isEdit && normalize(entry) === normalize(chore.name ?? '')) return false;
+        return normalize(entry) === currentNorm;
+    });
+
+    const wordCounts = new Map<string, number>();
+    existingNames.forEach(entry => {
+        const seen = new Set<string>();
+        normalize(entry).split(' ').forEach(w => {
+            if (w.length <= 1 || STOPWORDS.has(w) || seen.has(w)) return;
+            seen.add(w);
+            wordCounts.set(w, (wordCounts.get(w) ?? 0) + 1);
+        });
+    });
+
+    const genericThreshold = Math.max(2, Math.ceil(existingNames.length * 0.2));
+    const isGeneric = (w: string) => (wordCounts.get(w) ?? 0) >= genericThreshold;
+    const significant = (value: string) => value.split(' ').filter(w => w.length > 1 && !STOPWORDS.has(w));
+    const specificWords = (value: string) => significant(value).filter(w => !isGeneric(w));
+
+    const currentSpecific = specificWords(currentNorm);
+
+    const similarNames = trimmedName && !exactDuplicate && (currentSpecific.length > 0 || existingNames.some(entry => specificWords(normalize(entry)).length > 0))
+        ? existingNames.filter(entry => {
+            if (isEdit && normalize(entry) === normalize(chore.name ?? '')) return false;
+            const norm = normalize(entry);
+            if (!norm || norm === currentNorm) return false;
+
+            const entrySpecific = specificWords(norm);
+            if (entrySpecific.length === 0 && currentSpecific.length === 0) return false;
+
+            const [short, long] = norm.length <= currentNorm.length ? [norm, currentNorm] : [currentNorm, norm];
+            if (long.includes(short) && specificWords(short).length > 0) return true;
+
+            return currentSpecific.some(word => entrySpecific.includes(word));
+        })
+        : [];
+    const similar = similarNames.length > 0;
 
     useEffect(() => {
         let cancelled = false;
@@ -141,6 +190,14 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, onClose, onSave
                             className={inputClass}
                             autoFocus
                         />
+                        {exactDuplicate && (
+                            <p className="text-xs text-red-600 mt-1">A chore with this name already exists.</p>
+                        )}
+                        {similar && (
+                            <p className="text-xs text-amber-600 mt-1">
+                                Similar to existing: {similarNames.slice(0, 3).map(n => `"${n}"`).join(', ') + (similarNames.length > 3 ? ` and ${similarNames.length - 3} more` : '')}. Create anyway?
+                            </p>
+                        )}
                     </div>
 
                     <div>
@@ -283,7 +340,7 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, onClose, onSave
                     </button>
                     <button
                         onClick={handleSubmit}
-                        disabled={saving}
+                        disabled={saving || exactDuplicate}
                         className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2"
                     >
                         {saving && <Loader2 className="w-4 h-4 animate-spin" />}

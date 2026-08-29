@@ -8,6 +8,7 @@ const supabase = createClient(
 );
 
 const notion = new Client({ auth: process.env.NOTION_API_TOKEN });
+const choreDbId = process.env.CHORE_DB_ID!;
 
 export const handler: Handler = async (event) => {
     if (event.httpMethod === 'OPTIONS') {
@@ -56,8 +57,17 @@ export const handler: Handler = async (event) => {
             return { statusCode: 400, body: JSON.stringify({ error: "Days must be a positive integer" }) };
         }
 
+        const trimmedName = name.trim();
+        const existing = await notion.dataSources.query({
+            data_source_id: choreDbId,
+            filter: { property: 'Name', title: { equals: trimmedName } },
+        });
+        if (existing.results.some(result => result.id !== choreId)) {
+            return { statusCode: 409, body: JSON.stringify({ error: `A chore named "${trimmedName}" already exists.` }) };
+        }
+
         const properties: Record<string, unknown> = {
-            'Name': { title: [{ text: { content: name.trim().slice(0, 200) } }] },
+            'Name': { title: [{ text: { content: trimmedName.slice(0, 200) } }] },
             'Assigned to': { people: assignees.map(id => ({ id })) },
             'Days': { number: days },
             'Important': { checkbox: Boolean(important) },

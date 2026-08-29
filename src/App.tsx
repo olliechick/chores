@@ -1037,6 +1037,7 @@ const App = () => {
                     chore={editingChore}
                     allUsers={allUsers}
                     currentUserId={currentUserId}
+                    existingNames={state.chores.map(c => c.name)}
                     onClose={() => { setShowNewChoreModal(false); setEditingChore(null); }}
                     onSaved={handleChoreSaved}
                 />
