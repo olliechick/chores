@@ -47,7 +47,7 @@ export const StatusBadge = ({ chore }: StatusBadgeProps) => {
         } else {
             color = 'bg-gray-100 text-gray-500 border border-gray-300';
             const daysUntilDue = differenceInDays(nextDueDate, today);
-            label = `Due in ${daysUntilDue} days`;
+            label = `Due in ${daysUntilDue} day${daysUntilDue === 1 ? '' : 's'}`;
         }
     } else if (status === 'Done' && chore.lastCompleted && isToday(chore.lastCompleted)) {
         color = 'bg-green-500 text-white border border-green-500';
