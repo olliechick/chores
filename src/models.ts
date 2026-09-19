@@ -14,6 +14,7 @@ export interface Chore {
     room: string | null; // The name of the 'Select' option for the room
     important: boolean;
     searchTerms: string;
+    deleted: boolean; // Soft-deleted in Notion ('Deleted' checkbox ticked)
     alsoCompletes: string[]; // IDs of chores completed at the same time as this one (e.g. sheets completes pillowcases)
 }
 

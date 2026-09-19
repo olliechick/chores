@@ -38,11 +38,12 @@ function parseNotionDate(dateString: string | null | undefined): Date | null {
 
 /**
  * Fetches the list of chores from the backend proxy.
+ * If `includeDeleted` is true, soft-deleted chores are returned flagged with `deleted: true`.
  */
-export const fetchChores = async (): Promise<Chore[]> => {
+export const fetchChores = async (includeDeleted = false): Promise<Chore[]> => {
     const headers = await getAuthHeader();
 
-    const response = await fetch('/.netlify/functions/get-chores', {
+    const response = await fetch(`/.netlify/functions/get-chores${includeDeleted ? '?includeDeleted=true' : ''}`, {
         headers: headers,
     });
 
@@ -260,6 +261,53 @@ export const fetchRoomOptions = async (): Promise<string[]> => {
 
     const data: { rooms: string[] } = await response.json();
     return data.rooms;
+};
+
+/**
+ * Soft-deletes a chore by archiving its Notion page. Also scrubs it from
+ * other chores' 'Also completes' relations. Completion history is kept.
+ */
+export const deleteChoreApi = async (choreId: string): Promise<void> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch(`/.netlify/functions/delete-chore?choreId=${encodeURIComponent(choreId)}`, {
+        method: 'DELETE',
+        headers: headers,
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete chore.");
+    }
+};
+
+/**
+ * Restores a soft-deleted chore by unticking the 'Deleted' checkbox.
+ */
+export const restoreChoreApi = async (choreId: string): Promise<void> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch('/.netlify/functions/restore-chore', {
+        method: 'POST',
+        headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ choreId }),
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to restore chore.");
+    }
 };
 
 /**

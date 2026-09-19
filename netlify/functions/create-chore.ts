@@ -71,7 +71,11 @@ export const handler: Handler = async (event) => {
             data_source_id: choreDbId,
             filter: { property: 'Name', title: { equals: trimmedName } },
         });
-        if (existing.results.length > 0) {
+        if (existing.results.some(result => {
+            const props = (result as { properties?: Record<string, { type?: string; checkbox?: boolean }> }).properties;
+            const deletedProp = props?.['Deleted'];
+            return !(deletedProp?.type === 'checkbox' && deletedProp.checkbox);
+        })) {
             return { statusCode: 409, body: JSON.stringify({ error: `A chore named "${trimmedName}" already exists.` }) };
         }
 

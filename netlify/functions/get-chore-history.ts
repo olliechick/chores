@@ -53,7 +53,7 @@ export const handler: Handler = async (event) => {
         });
 
         const entries = response.results
-            .filter((page): page is Extract<typeof page, { properties: Record<string, unknown> }> => 'properties' in page)
+            .filter((page): page is Extract<typeof page, { properties: Record<string, unknown> }> => 'properties' in page && !page.archived)
             .map(page => {
                 const props = page.properties as Record<string, { type: string; date?: { start: string | null } | null; people?: Array<{ id: string; name?: string }> | null; title?: Array<{ plain_text: string }> }>;
 

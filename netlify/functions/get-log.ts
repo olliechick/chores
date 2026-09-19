@@ -65,7 +65,7 @@ export const handler: Handler = async (event) => {
         // 4. Extract chore ID + date from each entry
         const entries: Array<{ choreId: string; date: string }> = [];
         for (const page of response.results) {
-            if (!('properties' in page)) continue;
+            if (page.archived || !('properties' in page)) continue;
 
             const choreRel = page.properties['Chore'];
             const dateProp = page.properties['Date'];

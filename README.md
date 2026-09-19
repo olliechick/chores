@@ -50,6 +50,8 @@ You need to create two databases in your Notion workspace.
     * **`Also completes`** (Type: `Relation`): A relation to the **same** Chores database. When you mark this chore as
       done, the linked chore(s) are also logged as done on the same date (e.g. "Change sheets" also completes "Change
       pillowcases"). Linked chores can still be completed on their own.
+    * **`Deleted`** (Type: `Checkbox`): Tick this to remove a chore from the app ("soft delete"). The page stays in
+      Notion and its completion history is kept; the app simply hides it.
     * **`Log`** (Type: `Relation`): A relation to the "Chore Log" database you'll create in the next step. (Hide this
       property).
     * **`Last completed at`** (Type: `Rollup`):

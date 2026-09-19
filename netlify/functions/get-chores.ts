@@ -21,8 +21,9 @@ const databaseId = process.env.CHORE_DB_ID!;
 
 /**
  * Parses a single Notion page object into the app's Chore type.
+ * When `includeDeleted` is set, soft-deleted chores are parsed and flagged instead of skipped.
  */
-const parseNotionPage = (page: PageObjectResponse): Chore | null => {
+const parseNotionPage = (page: PageObjectResponse, options?: { includeDeleted?: boolean }): Chore | null => {
     try {
         const props = page.properties;
 
@@ -36,6 +37,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         const roomProp = props['Room'];
         const importantProp = props['Important'];
         const searchTermsProp = props['Search terms'];
+        const deletedProp = props['Deleted'];
         const alsoCompletesProp = props['Also completes'];
 
         // --- Validation ---
@@ -54,6 +56,12 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         }
         if (roomProp && roomProp.type !== 'select') {
             console.warn(`Invalid 'Room' property type for: ${nameProp.title[0].plain_text}`);
+            return null;
+        }
+
+        // Keep only deleted chores when including them, and only active ones otherwise
+        const deleted = deletedProp?.type === 'checkbox' && deletedProp.checkbox;
+        if (deleted !== Boolean(options?.includeDeleted)) {
             return null;
         }
 
@@ -97,6 +105,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             room,
             important,
             searchTerms,
+            deleted,
             alsoCompletes,
         };
 
@@ -137,13 +146,14 @@ export const handler: Handler = async (event) => {
         }
 
         // 3. Query Notion
+        const includeDeleted = event.queryStringParameters?.includeDeleted === 'true';
         const response = await notion.dataSources.query({
             data_source_id: databaseId
         });
 
         // 4. Map Notion Data to App Interface
         const chores = response.results
-            .map(page => 'properties' in page && 'icon' in page && 'is_locked' in page ? parseNotionPage(page) : null)
+            .map(page => 'properties' in page && 'icon' in page && 'is_locked' in page && !page.archived ? parseNotionPage(page, { includeDeleted }) : null)
             .filter(isDefined)
 
         return {

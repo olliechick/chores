@@ -24,7 +24,7 @@ import type { AppUser, Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
 import { calculateNextDueDate, formatSchedule, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { ChoreFormModal } from "./components/chore-form-modal";
-import { completeChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage } from "./notion-api";
+import { completeChoreApi, deleteChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage, restoreChoreApi } from "./notion-api";
 import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
 import type { Session } from '@supabase/supabase-js';
@@ -79,6 +79,13 @@ const App = () => {
     // Edit modal target (chore being edited)
     const [editingChore, setEditingChore] = useState<Chore | null>(null);
 
+    // Delete chore confirmation
+    const [confirmingDeleteChore, setConfirmingDeleteChore] = useState<Chore | null>(null);
+    const [choreDeletePending, setChoreDeletePending] = useState(false);
+
+    // Soft-deleted chores (loaded with includeDeleted, restorable)
+    const [deletedChores, setDeletedChores] = useState<Chore[]>([]);
+
     // Mark done confirmation modal
     const [confirmingChoreId, setConfirmingChoreId] = useState<string | null>(null);
     const [confirmDate, setConfirmDate] = useState(() => {
@@ -132,6 +139,7 @@ const App = () => {
                 clearLogCache();
                 choresLoadedRef.current = false;
                 setState({ chores: [], loading: false, error: null });
+                setDeletedChores([]);
             }
         });
 
@@ -168,8 +176,9 @@ const App = () => {
     const refreshChores = useCallback(async () => {
         setState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            const data = await fetchChores();
+            const [data, deleted] = await Promise.all([fetchChores(), fetchChores(true)]);
             setState(prev => ({ ...prev, chores: data, loading: false }));
+            setDeletedChores(deleted.filter(c => c.deleted));
 
             // Parse unique users from chores for the menu
             const users = new Map<string, AppUser>();
@@ -384,6 +393,50 @@ const App = () => {
             toast.error("Failed to delete entry.");
         } finally {
             setDeletingId(null);
+        }
+    }, []);
+
+
+    // 4c. Delete chore handler (soft-delete via archive; hard-delete when never completed)
+    const handleDeleteChore = useCallback(async (chore: Chore) => {
+        const hasHistory = chore.lastCompleted !== null;
+        setChoreDeletePending(true);
+        try {
+            await deleteChoreApi(chore.id);
+            setState(prev => ({
+                ...prev,
+                chores: prev.chores
+                    .filter(c => c.id !== chore.id)
+                    .map(c => c.alsoCompletes.includes(chore.id)
+                        ? { ...c, alsoCompletes: c.alsoCompletes.filter(id => id !== chore.id) }
+                        : c),
+            }));
+            if (selectedChoreId === chore.id) setSelectedChoreId(null);
+            setConfirmingDeleteChore(null);
+            setDeletedChores(prev => prev.some(c => c.id === chore.id) ? prev : [...prev, chore]);
+            toast.success(hasHistory ? `Deleted "${chore.name}". History kept.` : `Deleted "${chore.name}".`);
+        } catch (e) {
+            console.error("Failed to delete chore:", e);
+            const errorMessage = e instanceof Error ? e.message : "Failed to delete chore.";
+            toast.error(`Failed to delete '${chore.name}'. ${errorMessage}`);
+        } finally {
+            setChoreDeletePending(false);
+        }
+    }, [selectedChoreId]);
+
+    // 4d. Restore chore handler (untick 'Deleted')
+    const handleRestoreChore = useCallback(async (chore: Chore) => {
+        try {
+            await restoreChoreApi(chore.id);
+            setDeletedChores(prev => prev.filter(c => c.id !== chore.id));
+            setState(prev => prev.chores.some(c => c.id === chore.id)
+                ? prev
+                : { ...prev, chores: [...prev.chores, { ...chore, deleted: false }] });
+            toast.success(`Restored "${chore.name}".`);
+        } catch (e) {
+            console.error("Failed to restore chore:", e);
+            const errorMessage = e instanceof Error ? e.message : "Failed to restore chore.";
+            toast.error(`Failed to restore '${chore.name}'. ${errorMessage}`);
         }
     }, []);
 
@@ -857,6 +910,31 @@ const App = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {deletedChores.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold mb-4 text-gray-400 flex items-center">
+                                        <Trash2 className="w-6 h-6 mr-2" />
+                                        Deleted ({deletedChores.length})
+                                    </h2>
+                                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                        {deletedChores.map(chore => (
+                                            <div key={chore.id} className="flex items-center justify-between gap-3 bg-gray-100 rounded-xl p-4 shadow">
+                                                <div className="min-w-0">
+                                                    <p className="text-sm font-semibold text-gray-700 truncate">{chore.name}</p>
+                                                    {chore.room && <p className="text-xs text-gray-400">{chore.room}</p>}
+                                                </div>
+                                                <button
+                                                    onClick={() => handleRestoreChore(chore)}
+                                                    className="px-3 py-1.5 text-sm font-semibold text-indigo-700 bg-white rounded-lg hover:bg-indigo-50 transition-colors shadow cursor-pointer shrink-0"
+                                                >
+                                                    Restore
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </main>
                     )}
                 </>
@@ -901,6 +979,16 @@ const App = () => {
                                     aria-label="Edit chore"
                                 >
                                     <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        const chore = state.chores.find(c => c.id === selectedChoreId);
+                                        if (chore) setConfirmingDeleteChore(chore);
+                                    }}
+                                    className="text-gray-400 hover:text-red-600 transition-colors p-1 rounded-full hover:bg-red-50 shrink-0"
+                                    aria-label="Delete chore"
+                                >
+                                    <Trash2 className="w-4 h-4" />
                                 </button>
                                 <button
                                     onClick={() => setSelectedChoreId(null)}
@@ -1063,6 +1151,53 @@ const App = () => {
                     </div>
                 );
             })()}
+        {/* Delete Chore Confirmation Modal */}
+            {confirmingDeleteChore && (() => {
+                const hasHistory = confirmingDeleteChore.lastCompleted !== null;
+                return (
+                    <div
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                        onClick={() => setConfirmingDeleteChore(null)}
+                    >
+                        <div
+                            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h3 className="text-lg font-bold text-gray-800 mb-1">Delete chore</h3>
+                            <p className="text-gray-500 text-sm mb-4">{confirmingDeleteChore.name}</p>
+                            {hasHistory ? (
+                                <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-5">
+                                    This chore has completion history, so it will be soft-deleted: removed from your list,
+                                    but its completion history is kept in the log.
+                                </p>
+                            ) : (
+                                <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 mb-5">
+                                    This chore has never been completed, so deleting it is permanent.
+                                </p>
+                            )}
+
+                            <div className="flex gap-3 justify-end">
+                                <button
+                                    onClick={() => setConfirmingDeleteChore(null)}
+                                    disabled={choreDeletePending}
+                                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteChore(confirmingDeleteChore)}
+                                    disabled={choreDeletePending}
+                                    className="px-4 py-2 text-sm font-semibold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors shadow-md disabled:opacity-50 flex items-center gap-2"
+                                >
+                                    {choreDeletePending && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    {choreDeletePending ? 'Deleting...' : 'Delete'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
         {/* New/Edit Chore Modal */}
             {(showNewChoreModal || editingChore) && (
                 <ChoreFormModal

@@ -84,8 +84,12 @@ export const handler: Handler = async (event) => {
         const alsoCompleted: string[] = [];
         for (const linkedId of alsoIds) {
             if (linkedId === choreId) continue;
-            await createLogEntry(linkedId, choreName ? `via ${choreName}` : '');
-            alsoCompleted.push(linkedId);
+            try {
+                await createLogEntry(linkedId, choreName ? `via ${choreName}` : '');
+                alsoCompleted.push(linkedId);
+            } catch (e) {
+                console.warn(`Skipping linked chore ${linkedId}:`, e);
+            }
         }
 
         // Send a simple success response
