@@ -322,26 +322,37 @@ const App = () => {
         }
 
         try {
-            await completeChoreApi(choreId, currentUserId, date);
+            const { dateUsed, alsoCompleted } = await completeChoreApi(choreId, currentUserId, date);
             const completedDate = date ? new Date(`${date}T00:00:00`) : new Date();
-            const dateStr = date || completedDate.toISOString().split('T')[0];
+            const dateStr = dateUsed || date || completedDate.toISOString().split('T')[0];
 
+            const completedIds = new Set([choreId, ...alsoCompleted]);
             setState(prev => ({
                 ...prev,
                 chores: prev.chores.map(c =>
-                    c.id === choreId ? { ...c, lastCompleted: completedDate } : c
+                    completedIds.has(c.id) ? { ...c, lastCompleted: completedDate } : c
                 ),
             }));
 
             // Update log cache
             const cache = getLogCache();
             if (cache) {
-                cache.entries.push({ choreId, date: dateStr });
+                for (const id of completedIds) {
+                    cache.entries.push({ choreId: id, date: dateStr });
+                }
                 cache.lastSyncedAt = new Date().toISOString();
                 setLogCache(cache);
             }
 
             toast.success("Chore completed!");
+            if (alsoCompleted.length > 0) {
+                const names = alsoCompleted
+                    .map(id => state.chores.find(c => c.id === id)?.name)
+                    .filter((n): n is string => Boolean(n));
+                if (names.length > 0) {
+                    toast.success(`Also marked: ${names.join(', ')}`);
+                }
+            }
         } catch (e) {
             console.error("API call failed:", e);
             const errorMessage = e instanceof Error ? e.message : "Failed to save chore.";
@@ -923,6 +934,11 @@ const App = () => {
                                             <div className="flex items-center gap-2">
                                                 <User className="w-4 h-4 text-indigo-400" />
                                                 <span className="text-sm font-medium text-gray-700">{historyEntries[0].completedBy}</span>
+                                                {historyEntries[0].viaName && (
+                                                    <span className="text-xs text-indigo-500 bg-indigo-100 rounded-full px-2 py-0.5">
+                                                        via {historyEntries[0].viaName}
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <span className="text-sm text-gray-500">
@@ -950,6 +966,11 @@ const App = () => {
                                                         <div className="flex items-center gap-2">
                                                             <User className="w-4 h-4 text-indigo-400" />
                                                             <span className="text-sm font-medium text-gray-700">{entry.completedBy}</span>
+                                                            {entry.viaName && (
+                                                                <span className="text-xs text-indigo-500 bg-indigo-100 rounded-full px-2 py-0.5">
+                                                                    via {entry.viaName}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-sm text-gray-500">
@@ -993,6 +1014,17 @@ const App = () => {
                         >
                             <h3 className="text-lg font-bold text-gray-800 mb-1">Mark as done</h3>
                             <p className="text-gray-500 text-sm mb-4">{chore.name}</p>
+
+                            {chore.alsoCompletes.length > 0 && (() => {
+                                const linkedNames = chore.alsoCompletes
+                                    .map(id => state.chores.find(c => c.id === id)?.name)
+                                    .filter((n): n is string => Boolean(n));
+                                return linkedNames.length > 0 && (
+                                    <p className="text-sm text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg p-3 mb-4">
+                                        This will also mark as done: {linkedNames.join(', ')}
+                                    </p>
+                                );
+                            })()}
 
                             <label htmlFor="confirm-date" className="block text-sm font-medium text-gray-700 mb-1">
                                 Date completed
@@ -1038,6 +1070,7 @@ const App = () => {
                     allUsers={allUsers}
                     currentUserId={currentUserId}
                     existingNames={state.chores.map(c => c.name)}
+                    choreOptions={editingChore ? state.chores.filter(c => c.id !== editingChore.id) : state.chores}
                     onClose={() => { setShowNewChoreModal(false); setEditingChore(null); }}
                     onSaved={handleChoreSaved}
                 />

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import type { KeyboardEvent } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { AppUser, Chore } from "../models";
 import { createChoreApi, fetchRoomOptions, updateChoreApi } from "../notion-api";
@@ -8,6 +9,7 @@ type ChoreFormModalProps = {
     allUsers: AppUser[];
     currentUserId: string | null;
     existingNames: string[];
+    choreOptions: Chore[];
     onClose: () => void;
     onSaved: () => Promise<void>;
 };
@@ -24,7 +26,7 @@ const STOPWORDS = new Set([
     'for', 'from', 'in', 'into', 'is', 'it', 'of', 'on', 'or', 'out', 'over', 'the', 'to', 'up', 'with',
 ]);
 
-export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, onClose, onSaved }: ChoreFormModalProps) => {
+export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, choreOptions, onClose, onSaved }: ChoreFormModalProps) => {
     const isEdit = chore !== null;
 
     const [name, setName] = useState(chore?.name ?? "");
@@ -33,6 +35,10 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
     const [room, setRoom] = useState(chore?.room ?? "");
     const [important, setImportant] = useState(chore?.important ?? false);
     const [searchTerms, setSearchTerms] = useState(chore?.searchTerms ?? "");
+    const [alsoCompletes, setAlsoCompletes] = useState<string[]>(chore?.alsoCompletes ?? []);
+    const [alsoQuery, setAlsoQuery] = useState("");
+    const [alsoOpen, setAlsoOpen] = useState(false);
+    const [highlightIndex, setHighlightIndex] = useState(0);
     const [lastDone, setLastDone] = useState("");
 
     const [rooms, setRooms] = useState<string[]>([]);
@@ -104,6 +110,49 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
         );
     };
 
+    const toggleAlsoCompletes = (id: string) => {
+        setAlsoCompletes(prev =>
+            prev.includes(id) ? prev.filter(a => a !== id) : [...prev, id]
+        );
+    };
+
+    const filteredAlsoOptions = choreOptions
+        .filter(option => !alsoCompletes.includes(option.id))
+        .filter(option => {
+            const q = alsoQuery.trim().toLowerCase();
+            if (q === '') return true;
+            return option.name.toLowerCase().includes(q) ||
+                option.room?.toLowerCase().includes(q) ||
+                option.searchTerms.toLowerCase().includes(q) ||
+                option.assignees.some(a => a.name.toLowerCase().includes(q));
+        });
+
+    const selectAlsoOption = (id: string) => {
+        setAlsoCompletes(prev => prev.includes(id) ? prev : [...prev, id]);
+        setAlsoQuery("");
+        setHighlightIndex(0);
+        setAlsoOpen(true);
+    };
+
+    const handleAlsoKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightIndex(prev => filteredAlsoOptions.length === 0 ? 0 : Math.min(prev + 1, filteredAlsoOptions.length - 1));
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightIndex(prev => Math.max(prev - 1, 0));
+        } else if (e.key === 'Enter') {
+            const option = filteredAlsoOptions[highlightIndex];
+            if (option) {
+                e.preventDefault();
+                selectAlsoOption(option.id);
+            }
+        } else if (e.key === 'Escape') {
+            setAlsoQuery("");
+            setAlsoOpen(false);
+        }
+    };
+
     const handleSubmit = async () => {
         setError(null);
 
@@ -130,6 +179,7 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
                     room: room || undefined,
                     important,
                     searchTerms: searchTerms.trim() || undefined,
+                    alsoCompletes,
                 });
             } else {
                 await createChoreApi({
@@ -141,6 +191,7 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
                     searchTerms: searchTerms.trim() || undefined,
                     lastDone: lastDone || undefined,
                     completedById: lastDone && currentUserId ? currentUserId : undefined,
+                    alsoCompletes,
                 });
             }
             await onSaved();
@@ -222,6 +273,87 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
                                 ))}
                             </div>
                         )}
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Also completes</label>
+
+                        {alsoCompletes.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-2">
+                                {alsoCompletes.map(id => {
+                                    const option = choreOptions.find(c => c.id === id);
+                                    const label = option?.name ?? id;
+                                    return (
+                                        <span
+                                            key={id}
+                                            className="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium bg-indigo-600 text-white rounded-full"
+                                        >
+                                            {label}
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleAlsoCompletes(id)}
+                                                aria-label={`Remove ${label}`}
+                                                className="text-indigo-200 hover:text-white transition-colors cursor-pointer"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        <div
+                            className="relative"
+                            onBlur={(e) => {
+                                if (!e.currentTarget.contains(e.relatedTarget)) setAlsoOpen(false);
+                            }}
+                        >
+                            <input
+                                type="text"
+                                value={alsoQuery}
+                                onChange={(e) => {
+                                    setAlsoQuery(e.target.value);
+                                    setHighlightIndex(0);
+                                    setAlsoOpen(true);
+                                }}
+                                onFocus={() => setAlsoOpen(true)}
+                                onKeyDown={handleAlsoKeyDown}
+                                placeholder={choreOptions.length === 0 ? "Create other chores first" : "Search chores to link..."}
+                                className={inputClass}
+                            />
+                            {alsoOpen && (
+                                <div className="absolute z-20 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                    {filteredAlsoOptions.length === 0 ? (
+                                        <p className="px-3 py-2 text-sm text-gray-400">
+                                            {choreOptions.length === 0 ? 'Create other chores first, then link them here.' : 'No matching chores.'}
+                                        </p>
+                                    ) : (
+                                        filteredAlsoOptions.map((option, i) => (
+                                            <button
+                                                key={option.id}
+                                                type="button"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => selectAlsoOption(option.id)}
+                                                className={`w-full flex items-center justify-between gap-2 text-left px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                                    i === highlightIndex
+                                                        ? 'bg-indigo-50 text-indigo-700'
+                                                        : 'text-gray-700 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                                <span className="truncate">{option.name}</span>
+                                                {option.room && <span className="text-xs text-gray-400 shrink-0">{option.room}</span>}
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <p className="text-xs text-gray-400 mt-1">
+                            Completing this chore also marks the selected chores as done (same date). The selected chores
+                            can still be completed on their own.
+                        </p>
                     </div>
 
                     <div>

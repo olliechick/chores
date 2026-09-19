@@ -55,10 +55,16 @@ export const handler: Handler = async (event) => {
         const entries = response.results
             .filter((page): page is Extract<typeof page, { properties: Record<string, unknown> }> => 'properties' in page)
             .map(page => {
-                const props = page.properties as Record<string, { type: string; date?: { start: string | null } | null; people?: Array<{ id: string; name?: string }> | null }>;
+                const props = page.properties as Record<string, { type: string; date?: { start: string | null } | null; people?: Array<{ id: string; name?: string }> | null; title?: Array<{ plain_text: string }> }>;
 
                 const dateProp = props['Date'];
                 const dateStr = dateProp?.type === 'date' ? dateProp.date?.start : null;
+
+                const titleProp = props[''];
+                const title = titleProp?.type === 'title' && titleProp.title && titleProp.title.length > 0
+                    ? titleProp.title.map(t => t.plain_text).join('')
+                    : '';
+                const viaName = title.startsWith('via ') ? title.slice(4) : undefined;
 
                 const completedByProp = props['Completed by'];
                 let completedBy = 'Unknown';
@@ -71,9 +77,10 @@ export const handler: Handler = async (event) => {
                     id: page.id,
                     date: dateStr || null,
                     completedBy,
+                    viaName,
                 };
             })
-            .filter((entry): entry is { id: string; date: string; completedBy: string } => entry.date !== null);
+            .filter((entry): entry is { id: string; date: string; completedBy: string; viaName?: string } => entry.date !== null);
 
         return {
             statusCode: 200,

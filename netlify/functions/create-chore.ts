@@ -43,7 +43,7 @@ export const handler: Handler = async (event) => {
             throw new Error("Missing body");
         }
 
-        const { name, assignees, days, room, important, searchTerms, lastDone, completedById } = JSON.parse(event.body);
+        const { name, assignees, days, room, important, searchTerms, lastDone, completedById, alsoCompletes } = JSON.parse(event.body);
 
         if (!name || typeof name !== 'string' || name.trim() === '') {
             return { statusCode: 400, body: JSON.stringify({ error: "Name is required" }) };
@@ -57,6 +57,14 @@ export const handler: Handler = async (event) => {
         if (lastDone !== undefined && (typeof lastDone !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(lastDone))) {
             return { statusCode: 400, body: JSON.stringify({ error: "Last done must be a date in YYYY-MM-DD format" }) };
         }
+        const prepAlsoCompletes = (alsoCompletes: unknown): string[] => {
+            if (alsoCompletes === undefined) return [];
+            if (!Array.isArray(alsoCompletes) || alsoCompletes.some(id => typeof id !== 'string')) {
+                return [];
+            }
+            return [...new Set(alsoCompletes as string[])];
+        };
+        const alsoCompletesIds = prepAlsoCompletes(alsoCompletes);
 
         const trimmedName = name.trim();
         const existing = await notion.dataSources.query({
@@ -72,6 +80,7 @@ export const handler: Handler = async (event) => {
             'Assigned to': { people: assignees.map(id => ({ id })) },
             'Days': { number: days },
             'Important': { checkbox: Boolean(important) },
+            'Also completes': { relation: alsoCompletesIds.map(id => ({ id })) },
         };
 
         if (room && typeof room === 'string' && room.trim() !== '') {

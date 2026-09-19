@@ -47,6 +47,9 @@ You need to create two databases in your Notion workspace.
     * **`Room`** (Type: `Select`): The room the chore is in (e.g., "Kitchen", "Bathroom").
     * **`Important`** (Type: `Checkbox`): Check this to mark the chore as high priority. These will appear in the "
       Action Required" section when due.
+    * **`Also completes`** (Type: `Relation`): A relation to the **same** Chores database. When you mark this chore as
+      done, the linked chore(s) are also logged as done on the same date (e.g. "Change sheets" also completes "Change
+      pillowcases"). Linked chores can still be completed on their own.
     * **`Log`** (Type: `Relation`): A relation to the "Chore Log" database you'll create in the next step. (Hide this
       property).
     * **`Last completed at`** (Type: `Rollup`):
@@ -59,8 +62,9 @@ You need to create two databases in your Notion workspace.
 1. Create another new database.
 2. Get its ID from the URL.
 3. Set up the following properties:
-    * *(empty string)* (Type: `Title`): We don't need anything here, but a data source item needs a `Title`.
-    * **`Date`** (Type: `Date`): The date the chore was completed.
+* *(empty string)* (Type: `Title`): We don't need anything here, but a data source item needs a `Title`. The app uses
+  this to record "via X" attribution when an entry was auto-created by completing a linked chore.
+* **`Date`** (Type: `Date`): The date the chore was completed.
     * **`Completed by`** (Type: `Person`): The person who completed the chore.
     * **`Chore Relation`** (Type: `Relation`): The other side of the relation pointing back to your "Chores" database.
 

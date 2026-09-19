@@ -14,6 +14,7 @@ export interface Chore {
     room: string | null; // The name of the 'Select' option for the room
     important: boolean;
     searchTerms: string;
+    alsoCompletes: string[]; // IDs of chores completed at the same time as this one (e.g. sheets completes pillowcases)
 }
 
 export type Status = 'Overdue' | 'Due' | 'Done' | 'NextWeek' | 'NextMonth' | 'FarFuture';
@@ -28,6 +29,7 @@ export interface ChoreLogEntry {
     id: string;
     date: Date;
     completedBy: string;
+    viaName?: string; // Set when this entry was auto-created by completing another chore (e.g. pillowcases via sheets)
 }
 
 export interface AppSettings {

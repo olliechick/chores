@@ -42,7 +42,7 @@ export const handler: Handler = async (event) => {
             throw new Error("Missing body");
         }
 
-        const { choreId, name, assignees, days, room, important, searchTerms } = JSON.parse(event.body);
+        const { choreId, name, assignees, days, room, important, searchTerms, alsoCompletes } = JSON.parse(event.body);
 
         if (!choreId || typeof choreId !== 'string') {
             return { statusCode: 400, body: JSON.stringify({ error: "Chore ID is required" }) };
@@ -56,6 +56,10 @@ export const handler: Handler = async (event) => {
         if (typeof days !== 'number' || !Number.isInteger(days) || days < 1) {
             return { statusCode: 400, body: JSON.stringify({ error: "Days must be a positive integer" }) };
         }
+
+        const alsoCompletesIds = alsoCompletes !== undefined
+            ? (Array.isArray(alsoCompletes) ? [...new Set(alsoCompletes.filter(id => typeof id === 'string'))] : [])
+            : undefined;
 
         const trimmedName = name.trim();
         const existing = await notion.dataSources.query({
@@ -76,6 +80,10 @@ export const handler: Handler = async (event) => {
                 ? { rich_text: [{ text: { content: searchTerms.trim() } }] }
                 : { rich_text: [] },
         };
+
+        if (alsoCompletesIds !== undefined) {
+            properties['Also completes'] = { relation: alsoCompletesIds.map(id => ({ id })) };
+        }
 
         await notion.pages.update({
             page_id: choreId,

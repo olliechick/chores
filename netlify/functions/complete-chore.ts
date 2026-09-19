@@ -53,21 +53,45 @@ export const handler: Handler = async (event) => {
             day: '2-digit'
         }).format(new Date());
 
-        // 4. Create Log Entry
-        await notion.pages.create({
-            parent: { data_source_id: logDatabaseId },
-            properties: {
-                '': { title: [{ text: { content: "" } }] },
-                Date: { date: { start: nzDateString } },
-                'Completed by': { people: [{ id: completedById }] },
-                Chore: { relation: [{ id: choreId }] },
-            }
-        });
+        const createLogEntry = (choreId: string, title: string) =>
+            notion.pages.create({
+                parent: { data_source_id: logDatabaseId },
+                properties: {
+                    '': { title: [{ text: { content: title } }] },
+                    Date: { date: { start: nzDateString } },
+                    'Completed by': { people: [{ id: completedById }] },
+                    Chore: { relation: [{ id: choreId }] },
+                }
+            });
+
+        // 4. Look up the chore's name and its 'Also completes' self-relation
+        const chorePage = await notion.pages.retrieve({ page_id: choreId });
+        const choreProps = chorePage.properties;
+        const nameProp = (choreProps as Record<string, { type?: string; title?: Array<{ plain_text: string }> }>)['Name'];
+        const choreName = nameProp?.type === 'title' && nameProp.title && nameProp.title.length > 0
+            ? nameProp.title[0].plain_text
+            : null;
+
+        const alsoProp = (choreProps as Record<string, { type?: string; relation?: Array<{ id: string }> }>)['Also completes'];
+        const alsoIds = alsoProp?.type === 'relation'
+            ? [...new Set(alsoProp.relation.map(r => r.id))]
+            : [];
+
+        // 5. Create the main log entry
+        await createLogEntry(choreId, '');
+
+        // 6. Auto-complete linked chores with the same date/person
+        const alsoCompleted: string[] = [];
+        for (const linkedId of alsoIds) {
+            if (linkedId === choreId) continue;
+            await createLogEntry(linkedId, choreName ? `via ${choreName}` : '');
+            alsoCompleted.push(linkedId);
+        }
 
         // Send a simple success response
         return {
             statusCode: 200,
-            body: JSON.stringify({ success: true, dateUsed: nzDateString }),
+            body: JSON.stringify({ success: true, dateUsed: nzDateString, alsoCompleted }),
         };
 
     } catch (error) {

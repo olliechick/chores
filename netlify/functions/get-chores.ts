@@ -36,6 +36,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
         const roomProp = props['Room'];
         const importantProp = props['Important'];
         const searchTermsProp = props['Search terms'];
+        const alsoCompletesProp = props['Also completes'];
 
         // --- Validation ---
         if (nameProp?.type !== 'title' || nameProp.title.length === 0) {
@@ -69,6 +70,11 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             ? searchTermsProp.rich_text.map(t => t.plain_text).join(' ')
             : '';
 
+        // Parse 'Also completes' self-relation (default to empty)
+        const alsoCompletes = alsoCompletesProp?.type === 'relation'
+            ? alsoCompletesProp.relation.map(r => r.id)
+            : [];
+
         const assignees: AppUser[] = assigneeProp.people.map(person => {
             const fullName = ('name' in person ? person.name : person.id) || 'Unassigned';
 
@@ -91,6 +97,7 @@ const parseNotionPage = (page: PageObjectResponse): Chore | null => {
             room,
             important,
             searchTerms,
+            alsoCompletes,
         };
 
     } catch (error) {

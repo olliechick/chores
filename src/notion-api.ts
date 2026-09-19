@@ -72,7 +72,7 @@ export const completeChoreApi = async (
     choreId: string,
     completedById: string,
     date?: string,
-): Promise<void> => {
+): Promise<{ dateUsed: string; alsoCompleted: string[] }> => {
     const headers = await getAuthHeader();
 
     const response = await fetch('/.netlify/functions/complete-chore', {
@@ -96,6 +96,9 @@ export const completeChoreApi = async (
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || "Failed to complete chore.");
     }
+
+    const data: { dateUsed: string; alsoCompleted?: string[] } = await response.json();
+    return { dateUsed: data.dateUsed, alsoCompleted: data.alsoCompleted ?? [] };
 };
 
 /**
@@ -117,12 +120,13 @@ export const fetchChoreHistory = async (choreId: string): Promise<ChoreLogEntry[
         throw new Error(err.error || "Failed to fetch chore history.");
     }
 
-    const entries: { id: string; date: string; completedBy: string }[] = await response.json();
+    const entries: { id: string; date: string; completedBy: string; viaName?: string }[] = await response.json();
 
     return entries.map(entry => ({
         id: entry.id,
         date: parseNotionDate(entry.date)!,
         completedBy: entry.completedBy,
+        viaName: entry.viaName,
     }));
 };
 
@@ -176,6 +180,7 @@ export const createChoreApi = async (input: {
     searchTerms?: string;
     lastDone?: string;
     completedById?: string;
+    alsoCompletes?: string[];
 }): Promise<void> => {
     const headers = await getAuthHeader();
 
@@ -210,6 +215,7 @@ export const updateChoreApi = async (
         room?: string | null;
         important?: boolean;
         searchTerms?: string;
+        alsoCompletes?: string[];
     },
 ): Promise<void> => {
     const headers = await getAuthHeader();
