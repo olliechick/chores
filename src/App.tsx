@@ -26,6 +26,7 @@ import { calculateNextDueDate, formatSchedule, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { ChoreFormModal } from "./components/chore-form-modal";
 import { HolidayModal } from "./components/holiday-modal";
+import { LockBodyScroll } from "./components/lock-body-scroll";
 import { completeChoreApi, deleteChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchHolidays, fetchLogPage, restoreChoreApi } from "./notion-api";
 import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
@@ -998,6 +999,7 @@ const App = () => {
                     className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
                     onClick={() => setSelectedChoreId(null)}
                 >
+                    <LockBodyScroll />
                     <div
                         className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col"
                         onClick={(e) => e.stopPropagation()}
@@ -1143,6 +1145,7 @@ const App = () => {
                         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
                         onClick={() => setConfirmingChoreId(null)}
                     >
+                        <LockBodyScroll />
                         <div
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
                             onClick={(e) => e.stopPropagation()}
@@ -1206,6 +1209,7 @@ const App = () => {
                         className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
                         onClick={() => setConfirmingDeleteChore(null)}
                     >
+                        <LockBodyScroll />
                         <div
                             className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
                             onClick={(e) => e.stopPropagation()}

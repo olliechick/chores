@@ -3,6 +3,7 @@ import type { KeyboardEvent } from 'react';
 import { Loader2, X } from 'lucide-react';
 import type { AppUser, Chore } from "../models";
 import { createChoreApi, fetchRoomOptions, updateChoreApi } from "../notion-api";
+import { LockBodyScroll } from "./lock-body-scroll";
 
 type ChoreFormModalProps = {
     chore: Chore | null;
@@ -215,6 +216,7 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
             onClick={onClose}
         >
+            <LockBodyScroll />
             <div
                 className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] flex flex-col"
                 onClick={(e) => e.stopPropagation()}
