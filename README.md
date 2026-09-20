@@ -47,6 +47,8 @@ You need to create two databases in your Notion workspace.
     * **`Room`** (Type: `Select`): The room the chore is in (e.g., "Kitchen", "Bathroom").
     * **`Important`** (Type: `Checkbox`): Check this to mark the chore as high priority. These will appear in the "
       Action Required" section when due.
+    * **`Pause on holiday`** (Type: `Checkbox`): Check this to shift a chore's due date past any upcoming "Holiday" you
+      create. Missed due dates pile up after the holiday finishes, so nothing is due while you're away.
     * **`Also completes`** (Type: `Relation`): A relation to the **same** Chores database. When you mark this chore as
       done, the linked chore(s) are also logged as done on the same date (e.g. "Change sheets" also completes "Change
       pillowcases"). Linked chores can still be completed on their own.
@@ -70,9 +72,17 @@ You need to create two databases in your Notion workspace.
     * **`Completed by`** (Type: `Person`): The person who completed the chore.
     * **`Chore Relation`** (Type: `Relation`): The other side of the relation pointing back to your "Chores" database.
 
+**Database 3: Holidays (Optional, but needed for "Pause on holiday")**
+
+1. Create another new database.
+2. Get its ID from the URL.
+3. Set up the following properties:
+* **`Name`** (Type: `Title`): The name of the holiday (e.g., "Ski trip").
+* **`Date`** (Type: `Date`): The holiday period. Set a **date range** (start + end) using the property's date picker.
+
 #### C. Share Databases with Integration
 
-1. Go to both the "Chores" database and the "Chore Log" database.
+1. Go to all three databases.
 2. Click the **Share** button in the top-right corner.
 3. Click **Invite** and select your "Chore App" integration.
 4. Give it **"Can edit"** permissions.
@@ -107,6 +117,9 @@ Once your Notion backend is ready, you can run the app.
 
    # Your "Chore Log" Database ID (from Step 1B)
    CHORE_LOG_DB_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+
+   # Your "Holidays" Database ID (from Step 1B) — optional if you skip "Pause on holiday"
+   HOLIDAY_DB_ID=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
    ```
    These variables will be read by the Netlify CLI.
 

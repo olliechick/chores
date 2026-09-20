@@ -36,6 +36,7 @@ const parseNotionPage = (page: PageObjectResponse, options?: { includeDeleted?: 
         const lastCompletedProp = props['Last completed at'];
         const roomProp = props['Room'];
         const importantProp = props['Important'];
+        const pauseOnHolidayProp = props['Pause on holiday'];
         const searchTermsProp = props['Search terms'];
         const deletedProp = props['Deleted'];
         const alsoCompletesProp = props['Also completes'];
@@ -73,6 +74,9 @@ const parseNotionPage = (page: PageObjectResponse, options?: { includeDeleted?: 
         // Parse 'Important' checkbox (default to false if missing or wrong type)
         const important = importantProp?.type === 'checkbox' ? importantProp.checkbox : false;
 
+        // Parse 'Pause on holiday' checkbox (default to false)
+        const pauseOnHoliday = pauseOnHolidayProp?.type === 'checkbox' ? pauseOnHolidayProp.checkbox : false;
+
         // Parse 'Search terms' (rich_text, default to empty string)
         const searchTerms = (searchTermsProp?.type === 'rich_text' && searchTermsProp.rich_text.length > 0)
             ? searchTermsProp.rich_text.map(t => t.plain_text).join(' ')
@@ -104,6 +108,7 @@ const parseNotionPage = (page: PageObjectResponse, options?: { includeDeleted?: 
             lastCompleted: lastCompletedDate ? new Date(lastCompletedDate) : null,
             room,
             important,
+            pauseOnHoliday,
             searchTerms,
             deleted,
             alsoCompletes,

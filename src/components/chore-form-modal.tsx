@@ -34,6 +34,7 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
     const [days, setDays] = useState<number>(chore?.schedule ?? 7);
     const [room, setRoom] = useState(chore?.room ?? "");
     const [important, setImportant] = useState(chore?.important ?? false);
+    const [pauseOnHoliday, setPauseOnHoliday] = useState(chore?.pauseOnHoliday ?? false);
     const [searchTerms, setSearchTerms] = useState(chore?.searchTerms ?? "");
     const [alsoCompletes, setAlsoCompletes] = useState<string[]>(chore?.alsoCompletes ?? []);
     const [alsoQuery, setAlsoQuery] = useState("");
@@ -178,6 +179,7 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
                     days,
                     room: room || undefined,
                     important,
+                    pauseOnHoliday,
                     searchTerms: searchTerms.trim() || undefined,
                     alsoCompletes,
                 });
@@ -188,6 +190,7 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
                     days,
                     room: room || undefined,
                     important,
+                    pauseOnHoliday,
                     searchTerms: searchTerms.trim() || undefined,
                     lastDone: lastDone || undefined,
                     completedById: lastDone && currentUserId ? currentUserId : undefined,
@@ -453,6 +456,17 @@ export const ChoreFormModal = ({ chore, allUsers, currentUserId, existingNames, 
                         />
                         <span className="text-sm font-medium text-gray-700">Important</span>
                         <span className="text-xs text-gray-400">Shows under "Action required" when due</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                            type="checkbox"
+                            checked={pauseOnHoliday}
+                            onChange={(e) => setPauseOnHoliday(e.target.checked)}
+                            className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span className="text-sm font-medium text-gray-700">Pause on holiday</span>
+                        <span className="text-xs text-gray-400">Due dates shift past any holiday</span>
                     </label>
 
                     {error && (

@@ -13,9 +13,17 @@ export interface Chore {
     lastCompleted: Date | null; // The last time it was completed (Rollup from Log)
     room: string | null; // The name of the 'Select' option for the room
     important: boolean;
+    pauseOnHoliday: boolean; // Shift due dates past holidays
     searchTerms: string;
     deleted: boolean; // Soft-deleted in Notion ('Deleted' checkbox ticked)
     alsoCompletes: string[]; // IDs of chores completed at the same time as this one (e.g. sheets completes pillowcases)
+}
+
+export interface Holiday {
+    id: string; // Notion Page ID
+    name: string;
+    start: Date;
+    end: Date;
 }
 
 export type Status = 'Overdue' | 'Due' | 'Done' | 'NextWeek' | 'NextMonth' | 'FarFuture';

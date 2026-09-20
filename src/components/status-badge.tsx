@@ -1,18 +1,18 @@
 import { differenceInDays, format, isToday, isTomorrow } from "date-fns";
 import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
-import type { Chore } from "../models.ts";
+import type { Chore, Holiday } from "../models.ts";
 
-export type StatusBadgeProps = { chore: Chore }
+export type StatusBadgeProps = { chore: Chore, holidays?: Holiday[] }
 
 /**
  * Helper component for displaying the due date/status tag
  */
-export const StatusBadge = ({ chore }: StatusBadgeProps) => {
+export const StatusBadge = ({ chore, holidays = [] }: StatusBadgeProps) => {
     // Get the current date for comparison (using 'new Date()' or passing it in)
     // For simplicity, we'll use new Date() here.
     const today = new Date();
 
-    const nextDueDate = calculateNextDueDate(chore);
+    const nextDueDate = calculateNextDueDate(chore, holidays);
     const status = getChoreStatus(chore, nextDueDate);
 
     let color = 'bg-gray-200 text-gray-700';

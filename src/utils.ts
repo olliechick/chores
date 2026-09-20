@@ -1,5 +1,5 @@
 import { addDays, isToday, isWithinInterval, startOfToday } from "date-fns";
-import type { Chore, Status } from "./models.ts";
+import type { Chore, Holiday, Status } from "./models.ts";
 
 export const isDefined = <T>(value: T | null | undefined): value is T => {
     return value !== null && value !== undefined
@@ -18,22 +18,48 @@ export const formatSchedule = (days: number): string => {
 };
 
 /**
- * Calculates the next due date for a given chore based on its schedule.
+ * Shifts a due date to the day after each holiday it lands inside.
+ * Holidays are processed chronologically so chained periods work.
  */
-export const calculateNextDueDate = (chore: Chore): Date => {
+export const shiftNextDueForHolidays = (nextDue: Date, holidays: Holiday[]): Date => {
+    if (holidays.length === 0) {
+        return nextDue;
+    }
+
+    const sorted = [...holidays].sort((a, b) => a.start.getTime() - b.start.getTime());
+    let due = startOfDay(nextDue);
+    for (const holiday of sorted) {
+        const start = startOfDay(holiday.start);
+        const end = startOfDay(holiday.end);
+        if (due >= start && due <= end) {
+            due = addDays(end, 1);
+        }
+    }
+    return due;
+};
+
+/**
+ * Calculates the next due date for a given chore based on its schedule,
+ * shifting past any holidays when the chore is marked to pause on holiday.
+ */
+export const calculateNextDueDate = (chore: Chore, holidays: Holiday[] = []): Date => {
     const last = chore.lastCompleted;
 
     // If never completed, return today (or start of today to be safe)
     if (!last) {
-        return startOfToday();
+        return shiftNextDueForHolidays(startOfToday(), chore.pauseOnHoliday ? holidays : []);
     }
 
-    // If schedule is 0 or invalid, prevent infinite loops
-    const daysToAdd = chore.schedule;
-
     // Calculate the next due date based on the schedule
-    return addDays(last, daysToAdd);
+    const nextDue = addDays(last, chore.schedule);
+    return shiftNextDueForHolidays(nextDue, chore.pauseOnHoliday ? holidays : []);
 };
+
+function startOfDay(input: Date): Date {
+    const d = new Date(input);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
 
 /**
  * Determines the status of the chore (Due, Overdue, or Done for today)

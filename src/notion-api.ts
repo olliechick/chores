@@ -1,4 +1,4 @@
-import type { Chore, ChoreLogEntry } from "./models";
+import type { Chore, ChoreLogEntry, Holiday } from "./models";
 import type { LogEntry } from "./log-cache";
 import { supabase } from "./supabase";
 
@@ -178,6 +178,7 @@ export const createChoreApi = async (input: {
     days: number;
     room?: string;
     important?: boolean;
+    pauseOnHoliday?: boolean;
     searchTerms?: string;
     lastDone?: string;
     completedById?: string;
@@ -215,6 +216,7 @@ export const updateChoreApi = async (
         days: number;
         room?: string | null;
         important?: boolean;
+        pauseOnHoliday?: boolean;
         searchTerms?: string;
         alsoCompletes?: string[];
     },
@@ -328,5 +330,84 @@ export const deleteChoreLogApi = async (pageId: string): Promise<void> => {
         }
         const err = await response.json().catch(() => ({}));
         throw new Error(err.error || "Failed to delete log entry.");
+    }
+};
+
+/**
+ * Fetches the list of holidays from the backend proxy.
+ */
+export const fetchHolidays = async (): Promise<Holiday[]> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch('/.netlify/functions/get-holidays', {
+        headers: headers,
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to fetch holidays from server.");
+    }
+
+    const holidays: { id: string; name: string; start: string; end: string }[] = await response.json();
+
+    return holidays.map(h => ({
+        id: h.id,
+        name: h.name,
+        start: parseNotionDate(h.start)!,
+        end: parseNotionDate(h.end)!,
+    }));
+};
+
+/**
+ * Creates a new holiday in Notion.
+ */
+export const createHolidayApi = async (input: {
+    name: string;
+    start: string;
+    end: string;
+}): Promise<void> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch('/.netlify/functions/create-holiday', {
+        method: 'POST',
+        headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(input),
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to create holiday.");
+    }
+};
+
+/**
+ * Deletes a holiday by archiving its Notion page.
+ */
+export const deleteHolidayApi = async (pageId: string): Promise<void> => {
+    const headers = await getAuthHeader();
+
+    const response = await fetch(`/.netlify/functions/delete-holiday?pageId=${encodeURIComponent(pageId)}`, {
+        method: 'DELETE',
+        headers: headers,
+    });
+
+    if (!response.ok) {
+        if (response.status === 401) {
+            await supabase.auth.signOut();
+            window.location.reload();
+        }
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "Failed to delete holiday.");
     }
 };

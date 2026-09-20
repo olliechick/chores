@@ -43,7 +43,7 @@ export const handler: Handler = async (event) => {
             throw new Error("Missing body");
         }
 
-        const { name, assignees, days, room, important, searchTerms, lastDone, completedById, alsoCompletes } = JSON.parse(event.body);
+        const { name, assignees, days, room, important, pauseOnHoliday, searchTerms, lastDone, completedById, alsoCompletes } = JSON.parse(event.body);
 
         if (!name || typeof name !== 'string' || name.trim() === '') {
             return { statusCode: 400, body: JSON.stringify({ error: "Name is required" }) };
@@ -84,6 +84,7 @@ export const handler: Handler = async (event) => {
             'Assigned to': { people: assignees.map(id => ({ id })) },
             'Days': { number: days },
             'Important': { checkbox: Boolean(important) },
+            'Pause on holiday': { checkbox: Boolean(pauseOnHoliday) },
             'Also completes': { relation: alsoCompletesIds.map(id => ({ id })) },
         };
 

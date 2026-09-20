@@ -1,17 +1,23 @@
 import { calculateNextDueDate, getChoreStatus } from "../utils.ts";
 import { formatDistanceToNowStrict, isToday, isYesterday } from "date-fns";
 import { CheckCircle2, ClipboardList, MapPin, Star, User, Zap } from "lucide-react";
-import type { Chore } from "../models.ts";
+import type { Chore, Holiday } from "../models.ts";
 import { StatusBadge } from "./status-badge.tsx";
 
-type ChoreCardProps = { chore: Chore, onRequestComplete?: (id: string) => void, onSelect?: (id: string) => void }
+type ChoreCardProps = {
+    chore: Chore,
+    onRequestComplete?: (id: string) => void,
+    onSelect?: (id: string) => void,
+    holidays?: Holiday[],
+}
 
 export const ChoreCard = ({
                               chore,
                               onRequestComplete,
-                              onSelect
+                              onSelect,
+                              holidays = [],
                           }: ChoreCardProps) => {
-    const nextDueDate = calculateNextDueDate(chore);
+    const nextDueDate = calculateNextDueDate(chore, holidays);
     const status = getChoreStatus(chore, nextDueDate);
     const isActionable = status !== 'Done';
 
@@ -98,7 +104,7 @@ export const ChoreCard = ({
 
             {/* Status Badge and Action Button */}
             <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                <StatusBadge chore={chore} />
+                <StatusBadge chore={chore} holidays={holidays} />
 
                 {isActionable && (
                     <button

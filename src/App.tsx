@@ -15,16 +15,18 @@ import {
     RotateCcw,
     Search,
     Trash2,
+    TreePalm,
     User,
     X,
     Zap
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
-import type { AppUser, Chore, ChoreLogEntry, ChoreWithStatus } from "./models";
+import type { AppUser, Chore, ChoreLogEntry, ChoreWithStatus, Holiday } from "./models";
 import { calculateNextDueDate, formatSchedule, getChoreStatus } from "./utils";
 import { ChoreCard } from "./components/chore-card";
 import { ChoreFormModal } from "./components/chore-form-modal";
-import { completeChoreApi, deleteChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchLogPage, restoreChoreApi } from "./notion-api";
+import { HolidayModal } from "./components/holiday-modal";
+import { completeChoreApi, deleteChoreApi, deleteChoreLogApi, fetchChoreHistory, fetchChores, fetchHolidays, fetchLogPage, restoreChoreApi } from "./notion-api";
 import { supabase } from "./supabase";
 import { getLogCache, setLogCache, clearLogCache, buildLastCompletedMap } from "./log-cache";
 import type { Session } from '@supabase/supabase-js';
@@ -86,6 +88,10 @@ const App = () => {
     // Soft-deleted chores (loaded with includeDeleted, restorable)
     const [deletedChores, setDeletedChores] = useState<Chore[]>([]);
 
+    // Holidays (chores marked 'pause on holiday' shift their due dates)
+    const [holidays, setHolidays] = useState<Holiday[]>([]);
+    const [showHolidayModal, setShowHolidayModal] = useState(false);
+
     // Mark done confirmation modal
     const [confirmingChoreId, setConfirmingChoreId] = useState<string | null>(null);
     const [confirmDate, setConfirmDate] = useState(() => {
@@ -140,6 +146,7 @@ const App = () => {
                 choresLoadedRef.current = false;
                 setState({ chores: [], loading: false, error: null });
                 setDeletedChores([]);
+                setHolidays([]);
             }
         });
 
@@ -179,6 +186,12 @@ const App = () => {
             const [data, deleted] = await Promise.all([fetchChores(), fetchChores(true)]);
             setState(prev => ({ ...prev, chores: data, loading: false }));
             setDeletedChores(deleted.filter(c => c.deleted));
+
+            try {
+                setHolidays(await fetchHolidays());
+            } catch (holidayError) {
+                console.error("Failed to load holidays:", holidayError);
+            }
 
             // Parse unique users from chores for the menu
             const users = new Map<string, AppUser>();
@@ -227,6 +240,11 @@ const App = () => {
         setEditingChore(null);
         toast.success(wasEdit ? "Chore updated!" : "Chore created!");
     }, [refreshChores, editingChore]);
+
+    const handleHolidaySaved = useCallback(async () => {
+        await refreshChores();
+        setShowHolidayModal(false);
+    }, [refreshChores]);
 
     // 3. Data Fetch (Triggered when session exists, but only once)
     useEffect(() => {
@@ -451,7 +469,7 @@ const App = () => {
         farFutureChores
     } = useMemo(() => {
         const allChoresWithStatus: ChoreWithStatus[] = state.chores.map(chore => {
-            const nextDue = calculateNextDueDate(chore);
+            const nextDue = calculateNextDueDate(chore, holidays);
             return {
                 ...chore,
                 status: getChoreStatus(chore, nextDue),
@@ -536,7 +554,7 @@ const App = () => {
             nextMonthChores,
             farFutureChores
         };
-    }, [state.chores, currentUserId]);
+    }, [state.chores, currentUserId, holidays]);
 
     // Apply search filter to all categories
     const q = searchQuery.toLowerCase().trim();
@@ -555,6 +573,11 @@ const App = () => {
 
     // Current user for the menu header
     const currentUser = allUsers.find(u => u.id === currentUserId) ?? null;
+
+    // Holidays currently in progress (for the banner)
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const activeHolidays = holidays.filter(h => todayMidnight >= h.start && todayMidnight <= h.end);
 
     // Renders an avatar image or a fallback initial
     const avatarFor = (user: AppUser) => (
@@ -619,6 +642,14 @@ const App = () => {
 
                     {session && (
                         <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setShowHolidayModal(true)}
+                                className="text-gray-400 hover:text-emerald-600 transition-colors p-2 rounded-full hover:bg-emerald-50"
+                                aria-label="Manage holidays"
+                            >
+                                <TreePalm className="w-5 h-5" />
+                            </button>
+
                             <button
                                 onClick={() => setShowNewChoreModal(true)}
                                 className="text-gray-400 hover:text-indigo-600 transition-colors p-2 rounded-full hover:bg-indigo-50"
@@ -776,6 +807,16 @@ const App = () => {
                     {!state.loading && !logSyncing && !state.error && (
                         <main className="space-y-8">
 
+                            {activeHolidays.map(h => (
+                                <div
+                                    key={h.id}
+                                    className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-3 flex items-center"
+                                >
+                                    <TreePalm className="w-5 h-5 mr-2 shrink-0" />
+                                    <p className="text-sm font-medium">On holiday: {h.name}</p>
+                                </div>
+                            ))}
+
                             {filteredImportantDue.length === 0 &&
                              filteredStandardDue.length === 0 &&
                              filteredCompletedToday.length === 0 &&
@@ -809,6 +850,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
+                                                holidays={holidays}
                                                 onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
@@ -828,6 +870,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
+                                                holidays={holidays}
                                                 onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
@@ -847,6 +890,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
+                                                holidays={holidays}
                                                 onSelect={setSelectedChoreId}
                                             />
                                         ))}
@@ -865,6 +909,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
+                                                holidays={holidays}
                                                 onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
@@ -884,6 +929,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
+                                                holidays={holidays}
                                                 onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
@@ -903,6 +949,7 @@ const App = () => {
                                             <ChoreCard
                                                 key={chore.id}
                                                 chore={chore}
+                                                holidays={holidays}
                                                 onRequestComplete={(id) => { setConfirmingChoreId(id); setConfirmDate(new Date().toISOString().split('T')[0]); }}
                                                 onSelect={setSelectedChoreId}
                                             />
@@ -1208,6 +1255,15 @@ const App = () => {
                     choreOptions={editingChore ? state.chores.filter(c => c.id !== editingChore.id) : state.chores}
                     onClose={() => { setShowNewChoreModal(false); setEditingChore(null); }}
                     onSaved={handleChoreSaved}
+                />
+            )}
+
+            {/* Holidays Modal */}
+            {showHolidayModal && (
+                <HolidayModal
+                    holidays={holidays}
+                    onClose={() => setShowHolidayModal(false)}
+                    onSaved={handleHolidaySaved}
                 />
             )}
         </div>
